@@ -19,6 +19,7 @@ namespace DeckGenerator
             Dictionary<string, string> PageByWord = new Dictionary<string, string>();
 
             string[] lines = System.IO.File.ReadAllLines("src/Rivstart A1 & A2.tsv");
+
             foreach (string line in lines) {
                 string[] tokens = line.Split('\t');
                 TagsByWord.Add(tokens[0], tokens.Last());
@@ -43,7 +44,8 @@ namespace DeckGenerator
                             page = PageByWord[word];
                         }
 
-                        output +=           
+                        output +=          
+                            word + ", " + FormatWordClass(jsonWord.Class) + "\t" +
                             word + "\t" +
                             data.Definition + "\t" +
                             data.Example + "\t" +
@@ -52,8 +54,6 @@ namespace DeckGenerator
                             jsonWord.Gramar + "\t" + 
                             page + "\t" + 
                             tag + "\n";
-                    } else {
-
                     }
                 }
             }
@@ -71,10 +71,6 @@ namespace DeckGenerator
         public static bool DictionarySearch(string searchParam, string wordClass, JSONDictionary dict, out DictionaryData data) 
         {
             data = new DictionaryData();
-        
-            if (searchParam == "mot") {
-                
-            }
 
             List<string[]> translations = new List<string[]>();
 
