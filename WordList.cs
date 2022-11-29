@@ -10,6 +10,7 @@ namespace DeckGenerator
     {
         public string Class { get; set; }
         public string Gramar { get; set; }
+        public bool isFromRivstart { get; set; } = false;
     }
 
     public class WordList : Dictionary<string, List<WordProps>>

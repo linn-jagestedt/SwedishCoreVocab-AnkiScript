@@ -8,21 +8,49 @@ namespace DeckGenerator
 {
     public static class Program 
     {
+        public struct AnkiCard 
+        {
+            public string Question;
+            public string Word;
+            public string Class;
+            public string Gramar;
+            public string Definition;
+            public string Example;
+            public string ExampleTranslated;
+            public string Tags;
+
+            public override string ToString() => 
+                string.Join("\t", Question, Word, Class, Gramar, Definition, Example, ExampleTranslated, Tags);
+        }
+
         public static void Main() 
         {
-            
             SweToEngDictionary sweToEngDict = new SweToEngDictionary(dictionary.Deserialize("src/People's_Dictionary.xml"));
             WordList wordList = new WordList(LexicalResource.Deserialize("src/Common_Words.xml"));
 
             string[] lines = System.IO.File.ReadAllLines("src/Rivstart A1 & A2.tsv");
             Dictionary<string, string> tagsByWord = new Dictionary<string, string>();
 
-            foreach (string line in lines) {
-                string[] tokens = line.Split('\t');
-                tagsByWord.Add(tokens[0], tokens[5]);
+            for (int i = 0; i < lines.Length; i++) {
+                string[] tokens = lines[i].Split('\t');
+                tokens[0] = tokens[0].Replace(".", "").ToLower();
+
+                if (wordList.ContainsKey(tokens[0])) {
+                    foreach (WordProps props in wordList[tokens[0]]) {
+                        props.isFromRivstart = true;
+                    }
+                } else {
+                    wordList.Add(tokens[0], new List<WordProps>());
+                    wordList[tokens[0]].Add(new WordProps { isFromRivstart = true });
+                }
+
+                if (!tagsByWord.ContainsKey(tokens[0])) {
+                    tagsByWord.Add(tokens[0], tokens[5]);
+                }
             }
 
-            string output = "";
+            List<AnkiCard> Core6kDeck = new List<AnkiCard>();
+            List<AnkiCard> A1A2Deck = new List<AnkiCard>();
 
             for (int i = 0; i < wordList.Keys.Count(); i++) 
             {
@@ -30,38 +58,45 @@ namespace DeckGenerator
 
                 foreach (WordProps props in word.Value)  
                 {
-                    if (output.Contains(word.Key + " (" + FormatWordClass(props.Class) + ")" + "\t")) {
+                    string wordClass = FormatWordClass(props.Class);
+                    
+                    if (props.Class == null && sweToEngDict.DictEntriesByWord.ContainsKey(word.Key)) {
+                        wordClass = FormatWordClass(sweToEngDict.DictEntriesByWord[word.Key][0].Class);
+                    }
+
+                    string question = word.Key + " (" + wordClass + ")";
+
+                    // If the word is a duplicate, skip it
+                    if (Core6kDeck.Concat(A1A2Deck).Where(x => x.Question == question).Count() > 0) {
                         continue;
                     }
 
                     string definition = GetDefinitions(word.Key, props.Class, sweToEngDict);
 
+                    // If no defititions for the word is found, skip it
                     if (definition == "") {
                         continue;
                     }
 
-                    string wordClass = FormatWordClass(props.Class);
-
-                    output +=          
-                        word.Key + " (" + wordClass + ")" + "\t" +
-                        word.Key + "\t" +
-                        wordClass + "\t" +
-                        props.Gramar + "\t" +
-                        definition + "\t";
-
                     KeyValuePair<string, string> example = GetExamples(word.Key, props.Class, sweToEngDict);
-                    
-                    output += 
-                        example.Key + "\t" +
-                        example.Value + "\t";
 
-                    string tag = "";
+                    AnkiCard field = new AnkiCard {
+                        Question = word.Key + " (" + wordClass + ")",
+                        Word = word.Key,
+                        Class = wordClass,
+                        Gramar = props.Gramar,
+                        Definition = definition,
+                        Example = example.Key,
+                        ExampleTranslated = example.Value,
+                        Tags = tagsByWord.ContainsKey(word.Key) ? tagsByWord[word.Key] : ""
+                    };
 
-                    if (tagsByWord.ContainsKey(word.Key)) {
-                        tag = tagsByWord[word.Key];
+                    // Store card in different list depending on the tags
+                    if (field.Tags == "") {
+                        Core6kDeck.Add(field);
+                    } else {
+                        A1A2Deck.Add(field);
                     }
-
-                    output += tag + "\n";
                 }
 
                 if (i % 500 == 0) {
@@ -69,7 +104,9 @@ namespace DeckGenerator
                 }
             }
 
-            System.IO.File.WriteAllText("output/Swedish Core 7k.tsv", output);
+            System.IO.File.WriteAllText("output/Core6k.tsv", string.Join("\n", Core6kDeck.Select(x => x.ToString())));
+            System.IO.File.WriteAllText("output/Rivstart_A1A2.tsv", string.Join("\n", A1A2Deck.Select(x => x.ToString())));
+            //System.IO.File.WriteAllText("output/Rivstart_A1A2_Leftover.tsv", outputA1A2Leftover);
         }
 
         public static KeyValuePair<string, string> GetExamples(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
@@ -131,8 +168,10 @@ namespace DeckGenerator
             else if (wordClass == "vb") return "verb";
             else if (wordClass == "nn") return "noun";
             else if (wordClass == "av") return "adjective";
+            else if (wordClass == "jj") return "adjective";
             else if (wordClass == "ab") return "adverb";
             else if (wordClass == "nl") return "numeral";
+            else if (wordClass == "rg") return "numeral";
             else if (wordClass == "pn") return "prounoun";
             else if (wordClass == "in") return "interjection";
             else if (wordClass == "kn") return "conjunction";
