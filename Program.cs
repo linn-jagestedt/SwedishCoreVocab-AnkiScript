@@ -47,7 +47,7 @@ namespace DeckGenerator
                         word.Key + "\t" +
                         wordClass + "\t" +
                         props.Gramar + "\t" +
-                        definition;
+                        definition + "\t";
 
                     KeyValuePair<string, string> example = GetExamples(word.Key, props.Class, sweToEngDict);
                     
@@ -141,16 +141,10 @@ namespace DeckGenerator
         }
 
         public static bool MatchingWordClass(string a, string b) {
-            if (
-                a == null || 
-                b == null || 
-                a == "abbrev" || 
-                b == "abbrev" || 
-                (a == "jj" && b == "av") || 
-                (a == "rg" && b == "nl")) {
-                return true;
-            }
-            
+            if (a == null || b == null) return true;
+            else if (a == "jj" && b == "av") return true;
+            else if (a == "rg" && b == "nl") return true;
+            else if (a == "abbrev" || b == "abbrev") return false;
             return a == b;
         }
 
