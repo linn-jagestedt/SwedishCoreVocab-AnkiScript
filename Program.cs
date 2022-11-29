@@ -91,20 +91,18 @@ namespace DeckGenerator
                 }
             }
 
-            foreach (string word in dict.Words.Keys) 
+            Dictionary.JSONWord[] temp = dict.Words.SelectMany(x => x.Value).ToArray();
+            foreach(Dictionary.JSONWord jsonWord in temp)  
             {
-                foreach(Dictionary.JSONWord jsonWord in dict.Words[word])  
-                {
-                    if (!MatchingWordClass(jsonWord.Class, wordClass)) continue;
+                if (!MatchingWordClass(jsonWord.Class, wordClass)) continue;
 
-                    string[] inflections = Array.FindAll(jsonWord.Inflections, x => x == searchParam);
-                    if (inflections.Length > 0 && jsonWord.Translations != null) {
-                        translations.Add(jsonWord.Translations);
-                    }
+                string[] inflections = Array.FindAll(jsonWord.Inflections, x => x == searchParam);
+                if (inflections.Length > 0 && jsonWord.Translations != null) {
+                    translations.Add(jsonWord.Translations);
+                }
 
-                    if (jsonWord.Derivations.ContainsKey(searchParam)) {
-                        translations.Add(jsonWord.Derivations[searchParam]);
-                    }
+                if (jsonWord.Derivations.ContainsKey(searchParam)) {
+                    translations.Add(jsonWord.Derivations[searchParam]);
                 }
             }
             
@@ -132,9 +130,7 @@ namespace DeckGenerator
             if (a == "abbrev" || b == "abbrev") return true;
             else if (a == null || b == null) return true;
             else if (a == "jj" && b == "av") return true;
-            else if (a == "av" && b == "jj") return true;
             else if (a == "rg" && b == "nl") return true;
-            else if (a == "nl" && b == "rg") return true;
             else return a == b;
         }
 
