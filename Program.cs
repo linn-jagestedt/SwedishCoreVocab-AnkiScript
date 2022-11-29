@@ -32,17 +32,17 @@ namespace DeckGenerator
             {
                 foreach(WordList.JSONWord jsonWord in wordList.Words[word])  
                 {
+                    string tag = "";
+                    string page = "";
+
+                    if (TagsByWord.ContainsKey(word) && PageByWord.ContainsKey(word)) {
+                        tag = TagsByWord[word];
+                        page = PageByWord[word];
+                    } else {
+                        continue;
+                    }
+                    
                     if (DictionarySearch(word, jsonWord.Class, dictionary, out DictionaryData data)) {
-                        string tag = "";
-                        string page = "";
-
-                        if (TagsByWord.ContainsKey(word)) {
-                            tag = TagsByWord[word];
-                        }
-
-                        if (PageByWord.ContainsKey(word)) {
-                            page = PageByWord[word];
-                        }
 
                         output +=          
                             word + ", " + FormatWordClass(jsonWord.Class) + "\t" +
@@ -77,6 +77,11 @@ namespace DeckGenerator
             if (dict.Words.ContainsKey(searchParam)) {
                 Dictionary.JSONWord[] words = dict.Words[searchParam].Where(x => MatchingWordClass(x.Class, wordClass)).ToArray();
                 translations.AddRange(words.Select(x => x.Translations));
+
+                string[] array = words.Select(x => x.Definition).Where(x => x != "").ToArray();
+                if (array.Length > 0) {
+                    translations.Add(array);
+                }
 
                 for (int i = 0; i < words.Length; i++) {
                     if (words[0].Example != "") {

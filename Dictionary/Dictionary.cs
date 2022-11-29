@@ -84,12 +84,18 @@ namespace Dictionary
                     words.Add(word.Value.ToLower(), new List<JSONWord>());
                 }
 
+                string definition = "";
+                if (word.Definition != null &&  word.Definition.Translation != null) {
+                    definition = word.Definition.Translation.Value;
+                }
+
                 words[word.Value.ToLower()].Add(
                     new JSONWord{
                         Class = word.Class,
                         Translations = translations.ToArray(),
                         Derivations = derivations,
                         Inflections = inflections.ToArray(),
+                        Definition = definition,
                         Example = example.Value,
                         Example_Translation = example.Translation == null ? "" : example.Translation.Value
                     }

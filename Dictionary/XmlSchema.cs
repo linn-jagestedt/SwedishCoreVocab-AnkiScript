@@ -56,12 +56,24 @@ namespace Dictionary
             
         [XmlElement(ElementName = "paradigm")]
         public Paradigm Paradigm;
+
+        [XmlElement(ElementName = "definition")]
+        public Definition Definition;
     }
 
-    public class Example {
+    public class Example 
+    {
         [XmlAttribute(AttributeName = "value")]
         public string Value;
 
+        [XmlElement(ElementName = "translation")]
+        public Translation Translation;
+    }
+
+    public class Definition 
+    {
+        [XmlAttribute(AttributeName = "value")]
+        public string Value;
         [XmlElement(ElementName = "translation")]
         public Translation Translation;
     }

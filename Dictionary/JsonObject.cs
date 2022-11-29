@@ -21,5 +21,6 @@ namespace Dictionary
         public string Example { get; set; }
         public string Example_Translation { get; set; }
         public string[] Inflections { get; set; }
+        public string Definition { get; set; }
     }
 }
