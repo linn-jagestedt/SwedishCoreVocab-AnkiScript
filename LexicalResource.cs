@@ -3,50 +3,51 @@ using System.IO;
 
 namespace DeckGenerator
 {
-    public struct LexicalResource {
+    [XmlRoot(ElementName = "LexicalResource")]
+    public struct XmlLexicalResource {
         [XmlElement(ElementName = "Lexicon")]
-        public Lexicon Lexicon;
+        public XmlLexicon Lexicon;
 
-        public static LexicalResource Deserialize(string file) 
+        public static XmlLexicalResource Deserialize(string file) 
         {
-            XmlSerializer serializer = new XmlSerializer(typeof(LexicalResource));
-            LexicalResource lexicon;
+            XmlSerializer serializer = new XmlSerializer(typeof(XmlLexicalResource));
+            XmlLexicalResource lexicon;
 
             using (Stream reader = new FileStream(file, FileMode.Open)) {
-                lexicon = (LexicalResource)serializer.Deserialize(reader);
+                lexicon = (XmlLexicalResource)serializer.Deserialize(reader);
             }
 
             return lexicon;
         }
     }
 
-    public struct Lexicon
+    public struct XmlLexicon
     {
         [XmlElement(ElementName = "LexicalEntry")]
-        public LexicalEntry[] LexicalEntries;
+        public XmlLexicalEntry[] LexicalEntries;
     }
 
-    public struct LexicalEntry
+    public struct XmlLexicalEntry
     {
         [XmlElement(ElementName = "Lemma")]
-        public Lemma Lemma;
+        public XmlLemma Lemma;
     }
 
 
-    public struct Lemma
+    public struct XmlLemma
     {
         [XmlElement(ElementName = "FormRepresentation")]    
-        public FormRepresentation FormRepresentation;
+        public XmlFormRepresentation FormRepresentation;
     }
 
 
-    public struct FormRepresentation
+    public struct XmlFormRepresentation
     {
         [XmlElement(ElementName = "feat")]
-        public Feat[] Feats;
+        public XmlFeat[] Feats;
     }
 
-    public struct Feat
+    public struct XmlFeat
     {
         [XmlAttribute(AttributeName = "att")]
         public string Attribute;

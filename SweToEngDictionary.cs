@@ -7,114 +7,148 @@ using System.Linq;
 
 namespace DeckGenerator
 {
-    public class DictEntry
+    public struct Word : IEquatable<Word>
     {
-        public string Class { get; set; }
-        public  List<string> Translations { get; set; }
-        public string Definition { get; set; }
+        public string Value;
+        public string Class;
+
+        public Word(string value = "", string wordClass = "") {
+            Value = value;
+            Class = wordClass;
+        }
+
+        public static implicit operator Word(XmlWord w) => new Word(w.Value, w.Class);
+
+        public bool Equals(Word w) {
+            return Value == w.Value && MatchingWordClass(Class, w.Class);
+        }
+
+        public static bool MatchingWordClass(string a, string b) {
+            if (a == "" || b == "") return true;
+            return a == b;
+        }
+
     }
 
     public class SweToEngDictionary 
     {
-        public Dictionary<string, List<DictEntry>> DictEntriesByWord { get => _dictEntriesByWord; }
-        private Dictionary<string, List<DictEntry>> _dictEntriesByWord;
+        public HashSet<Word> Words { get; private set; }
 
-        public HashSet<string> HasAudio { get => _hasAudio; }
-        private HashSet<string> _hasAudio;
-
-        public Dictionary<KeyValuePair<string, string>, List<string>> WordsByInflection { get => _wordsByInflection; }
-        private Dictionary<KeyValuePair<string, string>, List<string>> _wordsByInflection;
-
-        public Dictionary<KeyValuePair<string, string>, List<string>> DerivationsByWord { get => _derivationsByWord; }
-        private Dictionary<KeyValuePair<string, string>,  List<string>> _derivationsByWord;
-
-        public Dictionary<KeyValuePair<string, string>, List<KeyValuePair<string, string>>> ExamplesByWord { get => _examplesByWord; }
-        private Dictionary<KeyValuePair<string, string>, List<KeyValuePair<string, string>>> _examplesByWord;
-
-        public SweToEngDictionary(dictionary dictionary)
+        public SweToEngDictionary(XmlDictionary dictionary)
         {
-            _wordsByInflection = new Dictionary<KeyValuePair<string, string>, List<string>>();
-            _hasAudio = new HashSet<string>();
+            Words = new HashSet<Word>();
+            DefinitionByWord = new Dictionary<Word, string>();
+            WordsByInflection = new Dictionary<Word, List<Word>>();
+            ExamplesByWord = new Dictionary<Word, List<KeyValuePair<string, string>>>();
+            TranslationsByWord = new Dictionary<Word, List<string>>();
+            HasAudioFile = new HashSet<string>();
 
-            _dictEntriesByWord = new Dictionary<string, List<DictEntry>>();
-        
-            _derivationsByWord = new Dictionary<KeyValuePair<string, string>, List<string>>();
-            _examplesByWord = new Dictionary<KeyValuePair<string, string>, List<KeyValuePair<string, string>>>();
+            foreach (XmlWord xmlWord in dictionary.Words) 
+            {                    
+                Words.Add(xmlWord);
+                GetDefinitions(xmlWord);
+                GetDerivations(xmlWord);
+                GetInflections(xmlWord);
+                GetExamples(xmlWord);
+                GetAudioFiles(xmlWord);
+                GetTranslations(xmlWord);
+            }
+        }
 
-            foreach (Word word in dictionary.Words) 
-            {    
-                if (word.Derivations != null) 
-                {   
-                    foreach (Derivation derivation in word.Derivations) 
-                    {
-                        if (derivation.Translations == null) {
-                            continue;
-                        }
+        public Dictionary<Word, string> DefinitionByWord { get; private set; }
 
-                        if (!_derivationsByWord.ContainsKey(new (derivation.Value, word.Class))) {
-                            _derivationsByWord.Add(new (derivation.Value, word.Class), new List<string>());
-                        }
+        public void GetDefinitions(XmlWord xmlWord) {
+            if (!DefinitionByWord.ContainsKey(xmlWord)) {
+                if (xmlWord.Definition != null &&  xmlWord.Definition.Translation != null) {
+                    DefinitionByWord.Add(xmlWord, xmlWord.Definition.Translation.Value);
+                }
+            }
+        }
 
-                        IEnumerable<string> temp = derivation.Translations.Select(
-                            x => (x.Value + (x.Comment == null ? "" : " (" + x.Comment + ")")).ToLower()
-                        );
+        private void GetDerivations(XmlWord xmlWord) 
+        {
+            if (xmlWord.Derivations == null) {   
+                return;
+            }
 
-                        _derivationsByWord[new (derivation.Value, word.Class)].AddRange(temp);
-                    }
+            foreach (XmlDerivation derivation in xmlWord.Derivations) 
+            {
+                if (derivation.Translations == null) {
+                    continue;
                 }
 
-                if (word.Phonetic != null) {
-                    if (!_hasAudio.Contains(word.Value)) {
-                        _hasAudio.Add(word.Value);
-                    }
+                Word word = new Word(derivation.Value, "");
+
+                if (!Words.Contains(word)) {
+                    Words.Add(word);
                 }
 
-                List<string> inflections = new List<string>();
+                if (!TranslationsByWord.ContainsKey(word)) {
+                    TranslationsByWord.Add(word, new List<string>());
+                }
+                
+                TranslationsByWord[word].AddRange(derivation.Translations.Select(x => x.Value + (x.Comment == "" ? "" : " (" + x.Comment + ")")));
+            }
+        }
 
-                if (word.Paradigm != null) {
-                    foreach (Inflection inflection in word.Paradigm.Inflections) {
-                        if (!_wordsByInflection.ContainsKey(new (inflection.Value, word.Class))) {
-                            _wordsByInflection.Add(new (inflection.Value, word.Class), new List<string>());
-                        }
-                        _wordsByInflection[new (inflection.Value, word.Class)].Add(word.Value.ToLower());
-                    }
+        public Dictionary<Word, List<Word>> WordsByInflection { get; private set; }
+
+        private void GetInflections(XmlWord xmlWord) 
+        {
+            if (xmlWord.Paradigm == null) {
+                return;
+            }
+
+            foreach (XmlInflection inflection in xmlWord.Paradigm.Inflections) {
+                Word word = new Word(inflection.Value, xmlWord.Class);
+
+                if (!WordsByInflection.ContainsKey(new Word(inflection.Value, xmlWord.Class))) {
+                    WordsByInflection.Add(word, new List<Word>());
                 }
 
-                List<string> translations = new List<string>();
+                WordsByInflection[word].Add(xmlWord);
+            }
+        }
 
-                if (word.Translations != null) {
-                    translations = word.Translations.Select(x =>  x.Value.ToLower() + (x.Comment == null ? "" : " (" + x.Comment + ")").ToLower()).ToArray().ToList();
+        public Dictionary<Word, List<KeyValuePair<string, string>>> ExamplesByWord { get; private set; }
+
+        private void GetExamples(XmlWord xmlWord) 
+        {
+            if (xmlWord.Examples == null) {
+                return;
+            }
+
+            if (!ExamplesByWord.ContainsKey(xmlWord)) {
+                ExamplesByWord.Add(xmlWord, new List<KeyValuePair<string, string>>());
+            }
+
+            IEnumerable<KeyValuePair<string, string>> examples = xmlWord.Examples.Select(
+                x => new KeyValuePair<string, string>(x.Value, x.Translation == null ? "" : x.Translation.Value)
+            );
+
+            ExamplesByWord[xmlWord].AddRange(examples.OrderBy(x => x.Value));
+        }
+
+        public HashSet<string> HasAudioFile { get; private set; }
+
+        private void GetAudioFiles(XmlWord xmlWord) 
+        {
+            if (xmlWord.Phonetic != null) {
+                if (!HasAudioFile.Contains(xmlWord.Value) && xmlWord.Value + ".swf" == xmlWord.Phonetic.SoundFile) {
+                    HasAudioFile.Add(xmlWord.Value);
+                }
+            }
+        }
+
+        public Dictionary<Word, List<string>> TranslationsByWord { get; private set; }
+
+        private void GetTranslations(XmlWord xmlWord) {
+            if (xmlWord.Translations != null) {
+                if (!TranslationsByWord.ContainsKey(xmlWord)) {
+                    TranslationsByWord.Add(xmlWord, new List<string>());
                 }
 
-                if (word.Examples != null) 
-                {
-                    if (!_examplesByWord.ContainsKey(new (word.Value, word.Class))) {
-                        _examplesByWord.Add(new (word.Value, word.Class), new List<KeyValuePair<string, string>>());
-                    }
-
-                    IEnumerable<KeyValuePair<string, string>> examples = word.Examples.Select(
-                        x => new KeyValuePair<string, string>(x.Value, x.Translation?.Value)
-                    );
-
-                    _examplesByWord[new (word.Value, word.Class)].AddRange(examples.OrderBy(x => x.Value));
-                }
-
-                if (!_dictEntriesByWord.ContainsKey(word.Value.ToLower())) {
-                    _dictEntriesByWord.Add(word.Value.ToLower(), new List<DictEntry>());
-                }
-
-                string definition = "";
-                if (word.Definition != null &&  word.Definition.Translation != null) {
-                    definition = word.Definition.Translation.Value;
-                }
-
-                DictEntry dictEntry =   new DictEntry{
-                    Class = word.Class,
-                    Translations = translations,
-                    Definition = definition,
-                };
-
-                _dictEntriesByWord[word.Value.ToLower()].Add(dictEntry);
+                TranslationsByWord[xmlWord].AddRange(xmlWord.Translations.Select(x =>  x.Value.ToLower() + (x.Comment == null ? "" : " (" + x.Comment + ")").ToLower()));
             }
         }
     }

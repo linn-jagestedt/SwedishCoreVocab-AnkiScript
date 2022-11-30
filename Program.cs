@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text;
+using AnkiNet;
 
 namespace DeckGenerator
 {
@@ -7,73 +8,103 @@ namespace DeckGenerator
     {
         public struct AnkiCard 
         {
-            public string Question;
-            public string Word;
-            public string Class;
-            public string Gramar;
-            public string Definition;
-            public string Example;
-            public string ExampleTranslated;
-            public string Audio;
-            public string Tags;
+            public string Question = "";
+            public string Word = "";
+            public string Class = "";
+            public string Gramar = "";
+            public string Definition = "";
+            public string Example = "";
+            public string ExampleTranslated = "";
+            public string Audio = "";
+            public string Tags = "";
+
+            public AnkiCard() 
+            {
+                Question = "";
+                Word = "";
+                Class = "";
+                Gramar = "";
+                Definition = "";
+                Example = "";
+                ExampleTranslated = "";
+                Audio = "";
+                Tags = "";
+            }
 
             public override string ToString() => 
                 string.Join("\t", Question, Word, Class, Gramar, Definition, Example, ExampleTranslated, Audio, Tags);
+
+            public string[] ToArray() =>
+                new string[] { Question, Word, Class, Gramar, Definition, Example, ExampleTranslated, Audio, Tags };
         }
 
         public static void Main() 
         {
-            SweToEngDictionary sweToEngDict = new SweToEngDictionary(dictionary.Deserialize("src/People's_Dictionary.xml"));
-            WordList wordList = new WordList(LexicalResource.Deserialize("src/Common_Words.xml"));
+            if (!Directory.Exists("output")) {
+                Directory.CreateDirectory("output");
+            }
 
-            string[] lines = System.IO.File.ReadAllLines("src/Rivstart A1 & A2.tsv");
+            if (!Directory.Exists("output/card")) {
+                Directory.CreateDirectory("output/card");
+            }
+
+            foreach (string file in Directory.GetFiles("src/card")) {
+                System.IO.File.Copy(file, "output/card/" + file.Split('/').Last(), true);
+            }
+
+            if (!Directory.Exists("output/collection.media")) {
+                Directory.CreateDirectory("output/collection.media");
+            }
+
+            foreach (string file in Directory.GetFiles("src/collection.media")) {
+                System.IO.File.Copy(file, "output/collection.media/" + file.Split('/').Last(), true);
+            }
+
+            SweToEngDictionary sweToEngDict = new SweToEngDictionary(XmlDictionary.Deserialize("src/People's_Dictionary.xml"));
+            WordList wordList = new WordList(XmlLexicalResource.Deserialize("src/Common_Words.xml"));
+
+            string[] lines = System.IO.File.ReadAllLines("src/Rivstart_Words.tsv");
             Dictionary<string, string> tagsByWord = new Dictionary<string, string>();
 
             for (int i = 0; i < lines.Length; i++) {
                 string[] tokens = lines[i].Split('\t');
                 tokens[0] = tokens[0].Replace(".", "").ToLower();
 
-                if (wordList.ContainsKey(tokens[0])) {
-                    foreach (WordProps props in wordList[tokens[0]]) {
-                        props.isFromRivstart = true;
-                    }
-                } else {
+                if (!wordList.ContainsKey(tokens[0])) {
                     wordList.Add(tokens[0], new List<WordProps>());
-                    wordList[tokens[0]].Add(new WordProps { isFromRivstart = true });
                 }
 
                 if (!tagsByWord.ContainsKey(tokens[0])) {
-                    tagsByWord.Add(tokens[0], tokens[5]);
+                    tagsByWord.Add(tokens[0], tokens[1]);
                 }
             }
 
-            List<AnkiCard> Core6kDeck = new List<AnkiCard>();
-            List<AnkiCard> A1A2Deck = new List<AnkiCard>();
+            List<AnkiCard> Deck = new List<AnkiCard>();
 
             for (int i = 0; i < wordList.Keys.Count(); i++) 
             {
                 KeyValuePair<string, List<WordProps>> word = wordList.ElementAt(i);
 
-                ///if (sweToEngDict.HasAudio.Contains(word.Key)) {
-                ///   Task task = GetAudioStream(word.Key);
-                ///}
-
                 foreach (WordProps props in word.Value)  
                 {
+                    if (sweToEngDict.HasAudioFile.Contains(word.Key)) {
+                        Task task = GetAudioStream(word.Key);
+                    }
+
                     string wordClass = FormatWordClass(props.Class);
                     
-                    if (props.Class == null && sweToEngDict.DictEntriesByWord.ContainsKey(word.Key)) {
-                        wordClass = FormatWordClass(sweToEngDict.DictEntriesByWord[word.Key][0].Class);
+                    if (props.Class == null) {
+                        wordClass = FormatWordClass(sweToEngDict.Words.Where(x => x.Value == word.Key).FirstOrDefault().Class);
                     }
 
                     string question = word.Key + " (" + wordClass + ")";
 
                     // If the word is a duplicate, skip it
-                    if (Core6kDeck.Concat(A1A2Deck).Where(x => x.Question == question).Count() > 0) {
+                    if (Deck.Where(x => x.Question.ToString() == question).Count() > 0) {
                         continue;
                     }
 
-                    string definition = GetDefinitions(word.Key, props.Class, sweToEngDict);
+                    string definition = GetDefinitions(new Word(word.Key, props.Class), sweToEngDict);
 
                     // If no defititions for the word is found, skip it
                     if (definition == "") {
@@ -94,12 +125,7 @@ namespace DeckGenerator
                         Tags = tagsByWord.ContainsKey(word.Key) ? tagsByWord[word.Key] : ""
                     };
 
-                    // Store card in different list depending on the tags
-                    if (field.Tags == "") {
-                        Core6kDeck.Add(field);
-                    } else {
-                        A1A2Deck.Add(field);
-                    }
+                    Deck.Add(field);
                 }
 
                 if (i % 500 == 0) {
@@ -107,9 +133,7 @@ namespace DeckGenerator
                 }
             }
 
-            System.IO.File.WriteAllText("output/Core6k.tsv", string.Join("\n", Core6kDeck.Select(x => x.ToString())));
-            System.IO.File.WriteAllText("output/Rivstart_A1A2.tsv", string.Join("\n", A1A2Deck.Select(x => x.ToString())));
-            //System.IO.File.WriteAllText("output/Rivstart_A1A2_Leftover.tsv", outputA1A2Leftover);
+            System.IO.File.WriteAllText("output/Deck.tsv", string.Join("\n", Deck));
         }
 
         static int DecToOctal(int n)
@@ -133,21 +157,15 @@ namespace DeckGenerator
             return new KeyValuePair<string, string>("", "");
         }
 
-        public static string GetDefinitions(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
+        public static string GetDefinitions(Word word, SweToEngDictionary sweToEngDict) 
         {
             List<List<string>> translations = new List<List<string>>();
 
-            translations.AddRange(GetTranslationsFromEntry(searchParam, wordClass, sweToEngDict));
+            translations.AddRange(GetTranslationsFromEntry(word, sweToEngDict));
 
-            if (translations.Count < 1) {
-                if (sweToEngDict.DerivationsByWord.ContainsKey(new (searchParam, wordClass))) {
-                    translations.Add(sweToEngDict.DerivationsByWord[new (searchParam, wordClass)]);
-                }
-
-                if (sweToEngDict.WordsByInflection.ContainsKey(new (searchParam, wordClass))) {
-                    foreach (string word in sweToEngDict.WordsByInflection[new (searchParam, wordClass)]) {
-                        translations.AddRange(GetTranslationsFromEntry(word, wordClass, sweToEngDict));
-                    }
+            if (sweToEngDict.WordsByInflection.ContainsKey(word)) {
+                foreach (Word w in sweToEngDict.WordsByInflection[word]) {
+                    translations.AddRange(GetTranslationsFromEntry(w, sweToEngDict));
                 }
             }
             
@@ -158,21 +176,12 @@ namespace DeckGenerator
             }
         }
 
-        public static List<List<string>> GetTranslationsFromEntry(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
+        public static List<List<string>> GetTranslationsFromEntry(Word word, SweToEngDictionary sweToEngDict) 
         {
             List<List<string>> translations = new List<List<string>>();
 
-            if (!sweToEngDict.DictEntriesByWord.ContainsKey(searchParam)) 
-                return translations;
-
-            List<DictEntry> entries = sweToEngDict.DictEntriesByWord[searchParam];
-            
-            foreach (DictEntry entry in entries) {
-                if (!MatchingWordClass(entry.Class, wordClass)) 
-                    continue;
-                if (entry.Definition.Length > 0) 
-                    entry.Translations.Add(entry.Definition);
-                translations.Add(entry.Translations);
+            if (sweToEngDict.TranslationsByWord.ContainsKey(word)) {
+                translations.Add(sweToEngDict.TranslationsByWord[word]);
             }
 
             return translations;
@@ -194,14 +203,6 @@ namespace DeckGenerator
             else if (wordClass == "kn") return "conjunction";
             else if (wordClass == "pm") return "name";
             else return wordClass;
-        }
-
-        public static bool MatchingWordClass(string a, string b) {
-            if (a == null || b == null) return true;
-            else if (a == "jj" && b == "av") return true;
-            else if (a == "rg" && b == "nl") return true;
-            else if (a == "abbrev" || b == "abbrev") return false;
-            return a == b;
         }
 
         public static string GenerateDefinition(List<List<string>> translations) 
@@ -235,7 +236,7 @@ namespace DeckGenerator
     
         public static async Task GetAudioStream(string word) {
             using (var client = new HttpClient()) {
-                if (!File.Exists("output/audio/" + word + ".mp3")) {
+                if (!File.Exists("output/collection.media/" + word + ".mp3")) {
                     
                     string formatedString = word;
 
@@ -249,12 +250,12 @@ namespace DeckGenerator
                     
                     try {
                         using (var s = client.GetStreamAsync("http://lexin.nada.kth.se/sound/" + formatedString + ".mp3")) {
-                            using (var fs = new FileStream("output/audio/" + word + ".mp3", FileMode.OpenOrCreate)) {
+                            using (var fs = new FileStream("output/collection.media/" + word + ".mp3", FileMode.OpenOrCreate)) {
                                 await s.Result.CopyToAsync(fs);
                             }
                         }
                     } catch {
-                        File.Delete("output/audio/" + word + ".mp3");
+                        File.Delete("output/collection.media/" + word + ".mp3");
                     }
                 }
             }

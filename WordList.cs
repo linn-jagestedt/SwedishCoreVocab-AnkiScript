@@ -6,36 +6,58 @@ using System.Collections.Generic;
 
 namespace DeckGenerator
 {
-    public class WordProps
+    public struct WordProps
     {
-        public string Class { get; set; }
-        public string Gramar { get; set; }
-        public bool isFromRivstart { get; set; } = false;
+        public string Class = "";
+        public string Gramar = "";
+        public bool isFromRivstart = false;
+
+        public WordProps() 
+        {
+            Class = "";
+            Gramar = "";
+            isFromRivstart = false;
+        }
     }
 
     public class WordList : Dictionary<string, List<WordProps>>
     {
-        public WordList(LexicalResource wordList) : base()
+        public WordList(XmlLexicalResource wordList) : base()
         {
-            foreach (LexicalEntry entry in wordList.Lexicon.LexicalEntries) 
+            foreach (XmlLexicalEntry entry in wordList.Lexicon.LexicalEntries) 
             {
-                Feat[] feats = entry.Lemma.FormRepresentation.Feats;
+                XmlFeat[] feats = entry.Lemma.FormRepresentation.Feats;
 
-                if (!ContainsKey(feats[0].Value.ToLower())) {
-                    Add(feats[0].Value.ToLower(), new List<WordProps>());
+                string word = feats[0].Value.ToLower();
+
+                if (!ContainsKey(word)) {
+                    Add(word, new List<WordProps>());
                 }
 
-                if (this[feats[0].Value.ToLower()].Where(x => x.Class == feats.Where(x => x.Attribute == "partOfSpeech").FirstOrDefault().Value).Count() > 0) {
+                string Class = feats.Where(x => x.Attribute == "partOfSpeech").FirstOrDefault().Value;
+                Class = Class == null ? "" : Class;
+                Class = ConvertClass(Class);
+
+                string gramar = feats.Where(x => x.Attribute == "gram").FirstOrDefault().Value;
+                gramar = gramar == null ? "" : gramar;
+
+                if (this[word].Where(x => x.Class == Class).Count() > 0) {
                     continue;
                 }
 
-                this[feats[0].Value.ToLower()].Add(
+                this[word].Add(
                     new WordProps{
-                        Class = feats.Where(x => x.Attribute == "partOfSpeech").FirstOrDefault().Value,
-                        Gramar = feats.Where(x => x.Attribute == "gram").FirstOrDefault().Value,
+                        Class = Class,
+                        Gramar = gramar,
                     }
                 );
             }
+        }
+
+        public static string ConvertClass(string a) {
+            if (a == "av") return "jj";
+            if (a == "nl") return "rg";
+            return a;
         }
     }
 }

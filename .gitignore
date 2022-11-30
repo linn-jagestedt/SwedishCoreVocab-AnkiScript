@@ -5,6 +5,10 @@
 
 .vscode
 
+output
+output/
+output/*
+
 # User-specific files
 *.rsuser
 *.suo
