@@ -138,14 +138,16 @@ namespace DeckGenerator
             List<List<string>> translations = new List<List<string>>();
 
             translations.AddRange(GetTranslationsFromEntry(searchParam, wordClass, sweToEngDict));
-            
-            if (sweToEngDict.DerivationsByWord.ContainsKey(new (searchParam, wordClass))) {
-                translations.Add(sweToEngDict.DerivationsByWord[new (searchParam, wordClass)]);
-            }
 
-            if (sweToEngDict.WordsByInflection.ContainsKey(new (searchParam, wordClass))) {
-                foreach (string word in sweToEngDict.WordsByInflection[new (searchParam, wordClass)]) {
-                    translations.AddRange(GetTranslationsFromEntry(word, wordClass, sweToEngDict));
+            if (translations.Count < 1) {
+                if (sweToEngDict.DerivationsByWord.ContainsKey(new (searchParam, wordClass))) {
+                    translations.Add(sweToEngDict.DerivationsByWord[new (searchParam, wordClass)]);
+                }
+
+                if (sweToEngDict.WordsByInflection.ContainsKey(new (searchParam, wordClass))) {
+                    foreach (string word in sweToEngDict.WordsByInflection[new (searchParam, wordClass)]) {
+                        translations.AddRange(GetTranslationsFromEntry(word, wordClass, sweToEngDict));
+                    }
                 }
             }
             
