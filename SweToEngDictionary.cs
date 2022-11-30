@@ -19,6 +19,9 @@ namespace DeckGenerator
         public Dictionary<string, List<DictEntry>> DictEntriesByWord { get => _dictEntriesByWord; }
         private Dictionary<string, List<DictEntry>> _dictEntriesByWord;
 
+        public HashSet<string> HasAudio { get => _hasAudio; }
+        private HashSet<string> _hasAudio;
+
         public Dictionary<KeyValuePair<string, string>, List<string>> WordsByInflection { get => _wordsByInflection; }
         private Dictionary<KeyValuePair<string, string>, List<string>> _wordsByInflection;
 
@@ -31,6 +34,7 @@ namespace DeckGenerator
         public SweToEngDictionary(dictionary dictionary)
         {
             _wordsByInflection = new Dictionary<KeyValuePair<string, string>, List<string>>();
+            _hasAudio = new HashSet<string>();
 
             _dictEntriesByWord = new Dictionary<string, List<DictEntry>>();
         
@@ -38,7 +42,7 @@ namespace DeckGenerator
             _examplesByWord = new Dictionary<KeyValuePair<string, string>, List<KeyValuePair<string, string>>>();
 
             foreach (Word word in dictionary.Words) 
-            {
+            {    
                 if (word.Derivations != null) 
                 {   
                     foreach (Derivation derivation in word.Derivations) 
@@ -56,6 +60,12 @@ namespace DeckGenerator
                         );
 
                         _derivationsByWord[new (derivation.Value, word.Class)].AddRange(temp);
+                    }
+                }
+
+                if (word.Phonetic != null) {
+                    if (!_hasAudio.Contains(word.Value)) {
+                        _hasAudio.Add(word.Value);
                     }
                 }
 
@@ -105,6 +115,7 @@ namespace DeckGenerator
                 };
 
                 _dictEntriesByWord[word.Value.ToLower()].Add(dictEntry);
-            }        }
+            }
+        }
     }
 }

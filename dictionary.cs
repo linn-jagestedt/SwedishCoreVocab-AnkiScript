@@ -59,6 +59,14 @@ namespace DeckGenerator
 
         [XmlElement(ElementName = "definition")]
         public Definition Definition;
+
+        [XmlElement(ElementName = "phonetic")]
+        public Phonetic Phonetic;
+    }
+
+    public class Phonetic {
+        [XmlAttribute(AttributeName = "value")]
+        public string Value;
     }
 
     public class Example 

@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Text.Json;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
+using System.Text;
 
 namespace DeckGenerator
 {
@@ -17,10 +14,11 @@ namespace DeckGenerator
             public string Definition;
             public string Example;
             public string ExampleTranslated;
+            public string Audio;
             public string Tags;
 
             public override string ToString() => 
-                string.Join("\t", Question, Word, Class, Gramar, Definition, Example, ExampleTranslated, Tags);
+                string.Join("\t", Question, Word, Class, Gramar, Definition, Example, ExampleTranslated, Audio, Tags);
         }
 
         public static void Main() 
@@ -56,6 +54,10 @@ namespace DeckGenerator
             {
                 KeyValuePair<string, List<WordProps>> word = wordList.ElementAt(i);
 
+                ///if (sweToEngDict.HasAudio.Contains(word.Key)) {
+                ///   Task task = GetAudioStream(word.Key);
+                ///}
+
                 foreach (WordProps props in word.Value)  
                 {
                     string wordClass = FormatWordClass(props.Class);
@@ -88,6 +90,7 @@ namespace DeckGenerator
                         Definition = definition,
                         Example = example.Key,
                         ExampleTranslated = example.Value,
+                        Audio = File.Exists("output/audio/" + word.Key + ".mp3") ? "[sound:" + word.Key + ".mp3]" : "",
                         Tags = tagsByWord.ContainsKey(word.Key) ? tagsByWord[word.Key] : ""
                     };
 
@@ -107,6 +110,18 @@ namespace DeckGenerator
             System.IO.File.WriteAllText("output/Core6k.tsv", string.Join("\n", Core6kDeck.Select(x => x.ToString())));
             System.IO.File.WriteAllText("output/Rivstart_A1A2.tsv", string.Join("\n", A1A2Deck.Select(x => x.ToString())));
             //System.IO.File.WriteAllText("output/Rivstart_A1A2_Leftover.tsv", outputA1A2Leftover);
+        }
+
+        static int DecToOctal(int n)
+        {
+            int result = 0;
+            List<int> octalNum = new List<int>();
+            for (int i = 0; n != 0; i++) {
+                result += (int)MathF.Pow(10, i) * (n % 8);
+                n /= 8;
+            }
+
+            return result;
         }
 
         public static KeyValuePair<string, string> GetExamples(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
@@ -215,5 +230,33 @@ namespace DeckGenerator
 
             return result;
         }
+    
+        public static async Task GetAudioStream(string word) {
+            using (var client = new HttpClient()) {
+                if (!File.Exists("output/audio/" + word + ".mp3")) {
+                    
+                    string formatedString = word;
+
+                    for (int j = 0; j < formatedString.Length; j++) {
+                        if (formatedString[j] > 127) {
+                            char c = formatedString[j];
+                            formatedString = formatedString.Remove(j, 1);
+                            formatedString = formatedString.Insert(j, "0" + DecToOctal((int)c).ToString());
+                        }
+                    }
+                    
+                    try {
+                        using (var s = client.GetStreamAsync("http://lexin.nada.kth.se/sound/" + formatedString + ".mp3")) {
+                            using (var fs = new FileStream("output/audio/" + word + ".mp3", FileMode.OpenOrCreate)) {
+                                await s.Result.CopyToAsync(fs);
+                            }
+                        }
+                    } catch {
+                        File.Delete("output/audio/" + word + ".mp3");
+                    }
+                }
+            }
+        }
+
     }
 }

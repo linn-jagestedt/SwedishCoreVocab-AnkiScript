@@ -25,7 +25,7 @@ namespace DeckGenerator
                     Add(feats[0].Value.ToLower(), new List<WordProps>());
                 }
 
-                if (this[feats[0].Value.ToLower()].Where(x => x.Class == feats[1].Value.ToLower()).Count() > 0) {
+                if (this[feats[0].Value.ToLower()].Where(x => x.Class == feats.Where(x => x.Attribute == "partOfSpeech").FirstOrDefault().Value).Count() > 0) {
                     continue;
                 }
 
