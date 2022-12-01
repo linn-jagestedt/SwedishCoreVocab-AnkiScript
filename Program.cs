@@ -71,8 +71,17 @@ namespace DeckGenerator
 
                     string definition = GetDefinitions(word.Key, props.Class, sweToEngDict);
 
-                    // If no defititions for the word is found, skip it
+                    // If no defititions for the word is found, copy it's tag to it's inflections
                     if (definition == "") {
+                        if (tagsByWord.ContainsKey(word.Key) && sweToEngDict.WordAndClassByInflection.ContainsKey(word.Key)) {
+                            foreach ((string, string) inflection in sweToEngDict.WordAndClassByInflection[word.Key]) {
+                                if (!tagsByWord.ContainsKey(inflection.Item1)) {
+                                    tagsByWord.Add(inflection.Item1, tagsByWord[word.Key]);
+                                } else {
+                                    tagsByWord[inflection.Item1] += " " + tagsByWord[word.Key];
+                                }
+                            }
+                        }
                         continue;
                     }
 
@@ -126,20 +135,22 @@ namespace DeckGenerator
             {
                 foreach ((string, string) wordAndClass in sweToEngDict.WordAndClassByInflection[searchParam]) 
                 {
-                    // If no translations are found so far, do a loose search
-                    if (translations.SelectMany(x => x.SelectMany(x => x)).Count() < 1) 
+                    if (wordClass == wordAndClass.Item2) {
+                        translations.AddRange(GetTranslationStrict(wordAndClass.Item1, wordAndClass.Item2, sweToEngDict));
+                        translations.Add(new List<string> { GetDefinitionStrict(wordAndClass.Item1, wordAndClass.Item2, sweToEngDict) });
+                    }
+                }
+
+               
+                // If no translations are found so far, do a loose search
+                /* if (translations.SelectMany(x => x.SelectMany(x => x)).Count() < 1) 
+                {
+                    foreach ((string, string) wordAndClass in sweToEngDict.WordAndClassByInflection[searchParam]) 
                     {
                         translations.AddRange(GetTranslation(wordAndClass.Item1, sweToEngDict));
                         translations.Add(GetDefinition(wordAndClass.Item1, sweToEngDict));
-                    } 
-                    else 
-                    {
-                        if (wordClass == wordAndClass.Item2) {
-                            translations.AddRange(GetTranslationStrict(wordAndClass.Item1, wordAndClass.Item2, sweToEngDict));
-                            translations.Add(new List<string> { GetDefinitionStrict(wordAndClass.Item1, wordAndClass.Item2, sweToEngDict) });
-                        }
                     }
-                }
+                } */
             }
 
             string result = GenerateDefinition(translations);
