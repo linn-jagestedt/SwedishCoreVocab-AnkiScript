@@ -10,12 +10,14 @@ namespace DeckGenerator
     {
         public string Class = "";
         public string Gramar = "";
+        public string KellyID = "";
         public bool isFromRivstart = false;
 
         public WordProps() 
         {
             Class = "";
             Gramar = "";
+            KellyID = "";
             isFromRivstart = false;
         }
     }
@@ -38,17 +40,21 @@ namespace DeckGenerator
                 Class = Class == null ? "" : Class;
                 Class = ConvertClass(Class);
 
-                string gramar = feats.Where(x => x.Attribute == "gram").FirstOrDefault().Value;
-                gramar = gramar == null ? "" : gramar;
-
                 if (this[word].Where(x => x.Class == Class).Count() > 0) {
                     continue;
                 }
+
+                string gramar = feats.Where(x => x.Attribute == "gram").FirstOrDefault().Value;
+                gramar = gramar == null ? "" : gramar;
+
+                string kellyID = feats.Where(x => x.Attribute == "kellyID").FirstOrDefault().Value;
+                kellyID = kellyID == null ? "" : kellyID;
 
                 this[word].Add(
                     new WordProps{
                         Class = Class,
                         Gramar = gramar,
+                        KellyID = kellyID
                     }
                 );
             }

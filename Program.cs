@@ -1,43 +1,13 @@
 ﻿using System;
 using System.Text;
 using AnkiNet;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace DeckGenerator
 {
     public static class Program 
     {
-        public struct AnkiCard 
-        {
-            public string Question = "";
-            public string Word = "";
-            public string Class = "";
-            public string Gramar = "";
-            public string Definition = "";
-            public string Example = "";
-            public string ExampleTranslated = "";
-            public string Audio = "";
-            public string Tags = "";
-
-            public AnkiCard() 
-            {
-                Question = "";
-                Word = "";
-                Class = "";
-                Gramar = "";
-                Definition = "";
-                Example = "";
-                ExampleTranslated = "";
-                Audio = "";
-                Tags = "";
-            }
-
-            public override string ToString() => 
-                string.Join("\t", Question, Word, Class, Gramar, Definition, Example, ExampleTranslated, Audio, Tags);
-
-            public string[] ToArray() =>
-                new string[] { Question, Word, Class, Gramar, Definition, Example, ExampleTranslated, Audio, Tags };
-        }
-
         public static void Main() 
         {
             if (!Directory.Exists("output")) {
@@ -87,16 +57,11 @@ namespace DeckGenerator
 
                 foreach (WordProps props in word.Value)  
                 {
-                    if (sweToEngDict.HasAudioFile.Contains(word.Key)) {
+                    if (sweToEngDict.HasAudio.Contains(word.Key)) {
                         Task task = GetAudioStream(word.Key);
                     }
 
                     string wordClass = FormatWordClass(props.Class);
-                    
-                    if (props.Class == null) {
-                        wordClass = FormatWordClass(sweToEngDict.Words.Where(x => x.Value == word.Key).FirstOrDefault().Class);
-                    }
-
                     string question = word.Key + " (" + wordClass + ")";
 
                     // If the word is a duplicate, skip it
@@ -104,14 +69,20 @@ namespace DeckGenerator
                         continue;
                     }
 
-                    string definition = GetDefinitions(new Word(word.Key, props.Class), sweToEngDict);
+                    string definition = GetDefinitions(word.Key, props.Class, sweToEngDict);
 
                     // If no defititions for the word is found, skip it
                     if (definition == "") {
                         continue;
                     }
 
-                    KeyValuePair<string, string> example = GetExamples(word.Key, props.Class, sweToEngDict);
+                    (string, string) example;
+
+                    if (props.Class != "") {
+                        example = GetExampleStrict(word.Key, props.Class, sweToEngDict);
+                    } else {
+                        example = GetExample(word.Key, sweToEngDict);
+                    }
 
                     AnkiCard field = new AnkiCard {
                         Question = word.Key + " (" + wordClass + ")",
@@ -119,9 +90,10 @@ namespace DeckGenerator
                         Class = wordClass,
                         Gramar = props.Gramar,
                         Definition = definition,
-                        Example = example.Key,
-                        ExampleTranslated = example.Value,
-                        Audio = File.Exists("output/audio/" + word.Key + ".mp3") ? "[sound:" + word.Key + ".mp3]" : "",
+                        Example = example.Item1,
+                        ExampleTranslated = example.Item2,
+                        Audio = File.Exists("output/collection.media/" + word.Key + ".mp3") ? "[sound:" + word.Key + ".mp3]" : "",
+                        KellyID = props.KellyID,
                         Tags = tagsByWord.ContainsKey(word.Key) ? tagsByWord[word.Key] : ""
                     };
 
@@ -134,57 +106,162 @@ namespace DeckGenerator
             }
 
             System.IO.File.WriteAllText("output/Deck.tsv", string.Join("\n", Deck));
+            
         }
 
-        static int DecToOctal(int n)
+        public static string GetDefinitions(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
         {
-            int result = 0;
-            List<int> octalNum = new List<int>();
-            for (int i = 0; n != 0; i++) {
-                result += (int)MathF.Pow(10, i) * (n % 8);
-                n /= 8;
+            List<List<string>> translations = new List<List<string>>();
+
+            translations.AddRange(GetTranslationStrict(searchParam, wordClass, sweToEngDict));
+            translations.Add(new List<string> { GetDefinitionStrict(searchParam, wordClass, sweToEngDict) });
+
+            if (sweToEngDict.WordByDerivation.ContainsKey(searchParam)) {
+                foreach (string word in sweToEngDict.WordByDerivation[searchParam]) {
+                    translations.AddRange(GetTranslation(word, sweToEngDict));
+                }
+            }
+
+            if (sweToEngDict.WordAndClassByInflection.ContainsKey(searchParam)) 
+            {
+                foreach ((string, string) wordAndClass in sweToEngDict.WordAndClassByInflection[searchParam]) 
+                {
+                    // If no translations are found so far, do a loose search
+                    if (translations.SelectMany(x => x.SelectMany(x => x)).Count() < 1) 
+                    {
+                        translations.AddRange(GetTranslation(wordAndClass.Item1, sweToEngDict));
+                        translations.Add(GetDefinition(wordAndClass.Item1, sweToEngDict));
+                    } 
+                    else 
+                    {
+                        if (wordClass == wordAndClass.Item2) {
+                            translations.AddRange(GetTranslationStrict(wordAndClass.Item1, wordAndClass.Item2, sweToEngDict));
+                            translations.Add(new List<string> { GetDefinitionStrict(wordAndClass.Item1, wordAndClass.Item2, sweToEngDict) });
+                        }
+                    }
+                }
+            }
+
+            string result = GenerateDefinition(translations);
+            return result == "" ? "" : "<ul>" + result + "</ul>"; 
+        }
+
+        public static List<List<string>> GetTranslation(string searchParam, SweToEngDictionary sweToEngDict) 
+        {
+            if (sweToEngDict.DictEntryByWord.ContainsKey(searchParam)) {
+                return sweToEngDict.DictEntryByWord[searchParam].TranslationsByClass.SelectMany(x => x.Value).ToList();
+            }
+
+            return new List<List<string>>();
+        }
+
+        public static List<List<string>> GetTranslationStrict(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
+        {
+            if (sweToEngDict.DictEntryByWord.ContainsKey(searchParam)) {
+                if (sweToEngDict.DictEntryByWord[searchParam].TranslationsByClass.ContainsKey(wordClass)) {
+                    return sweToEngDict.DictEntryByWord[searchParam].TranslationsByClass[wordClass];
+                }
+            }
+
+            return new List<List<string>>();
+        }
+
+        public static List<string> GetDefinition(string searchParam, SweToEngDictionary sweToEngDict) 
+        {
+            if (sweToEngDict.DictEntryByWord.ContainsKey(searchParam)) {
+                return sweToEngDict.DictEntryByWord[searchParam].DefinitionByClass.Select(x => x.Value).ToList();
+            }
+
+            return new List<string>();
+        }
+
+        public static string GetDefinitionStrict(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
+        {
+            if (sweToEngDict.DictEntryByWord.ContainsKey(searchParam)) {
+                if (sweToEngDict.DictEntryByWord[searchParam].DefinitionByClass.ContainsKey(wordClass)) {
+                    return sweToEngDict.DictEntryByWord[searchParam].DefinitionByClass[wordClass];
+                }
+            }
+
+            return "";
+        }
+
+        public static (string, string) GetExample(string searchParam, SweToEngDictionary sweToEngDict) 
+        {
+            if (sweToEngDict.DictEntryByWord.ContainsKey(searchParam)) {
+                return sweToEngDict.DictEntryByWord[searchParam].ExamplesByClass.SelectMany(x => x.Value).FirstOrDefault();
+            }
+
+            return ("", "");
+        }
+
+        public static (string, string) GetExampleStrict(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
+        {
+            if (sweToEngDict.DictEntryByWord.ContainsKey(searchParam)) {
+                if (sweToEngDict.DictEntryByWord[searchParam].ExamplesByClass.ContainsKey(wordClass)) {
+                    return sweToEngDict.DictEntryByWord[searchParam].ExamplesByClass[wordClass].FirstOrDefault();
+                }
+            }
+
+            return ("", "");
+        }
+
+        public static string GenerateDefinition(List<List<string>> definitions) 
+        {
+            string result = "";
+
+            foreach (List<string> definition in definitions)
+            {
+                definition.RemoveAll(x => x == "");
+
+                if (definition.Count() < 1) {
+                    continue;
+                }
+                
+                List<string> values = new List<string>();
+
+                for (int i = 0; i < definition.Count(); i++)
+                {
+                    if (definition.IndexOf(definition[i]) >= i) {
+                        values.Add(definition[i]);
+                    }
+                }
+
+                string temp = "<li>" + string.Join(", ", values) + "</li>";
+
+                if (!result.Contains(temp)) {
+                    result += temp;
+                }
             }
 
             return result;
         }
+    
+        public static async Task GetAudioStream(string word) {
+            using (var client = new HttpClient()) {
+                if (!File.Exists("output/collection.media/" + word + ".mp3")) {
+                    
+                    string formatedString = word;
 
-        public static KeyValuePair<string, string> GetExamples(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
-        {
-            if (sweToEngDict.ExamplesByWord.ContainsKey(new (searchParam, wordClass))) {
-                return sweToEngDict.ExamplesByWord[new (searchParam, wordClass)][0];
-            }
-
-            return new KeyValuePair<string, string>("", "");
-        }
-
-        public static string GetDefinitions(Word word, SweToEngDictionary sweToEngDict) 
-        {
-            List<List<string>> translations = new List<List<string>>();
-
-            translations.AddRange(GetTranslationsFromEntry(word, sweToEngDict));
-
-            if (sweToEngDict.WordsByInflection.ContainsKey(word)) {
-                foreach (Word w in sweToEngDict.WordsByInflection[word]) {
-                    translations.AddRange(GetTranslationsFromEntry(w, sweToEngDict));
+                    for (int j = 0; j < formatedString.Length; j++) {
+                        if (formatedString[j] > 127) {
+                            char c = formatedString[j];
+                            formatedString = formatedString.Remove(j, 1);
+                            formatedString = formatedString.Insert(j, "0" + ((int)c).ToOctal().ToString());
+                        }
+                    }
+                    
+                    try {
+                        using (var s = client.GetStreamAsync("http://lexin.nada.kth.se/sound/" + formatedString + ".mp3")) {
+                            using (var fs = new FileStream("output/collection.media/" + word + ".mp3", FileMode.OpenOrCreate)) {
+                                await s.Result.CopyToAsync(fs);
+                            }
+                        }
+                    } catch {
+                        File.Delete("output/collection.media/" + word + ".mp3");
+                    }
                 }
             }
-            
-            if (translations.Count > 0) {
-                return "<ul>" + GenerateDefinition(translations) + "</ul>";
-            } else {
-                return "";
-            }
-        }
-
-        public static List<List<string>> GetTranslationsFromEntry(Word word, SweToEngDictionary sweToEngDict) 
-        {
-            List<List<string>> translations = new List<List<string>>();
-
-            if (sweToEngDict.TranslationsByWord.ContainsKey(word)) {
-                translations.Add(sweToEngDict.TranslationsByWord[word]);
-            }
-
-            return translations;
         }
 
         public static string FormatWordClass(string wordClass) 
@@ -205,61 +282,16 @@ namespace DeckGenerator
             else return wordClass;
         }
 
-        public static string GenerateDefinition(List<List<string>> translations) 
+        public static int ToOctal(this int n)
         {
-            string result = "";
-
-            foreach (List<string> array in translations) 
-            {
-                if (array != null) {
-                    string temp = "<li>";
-                    
-                    List<string> values = new List<string>();
-
-                    for (int i = 0; i < array.Count(); i++)
-                    {
-                        if (array.IndexOf(array[i]) >= i) {
-                            values.Add(array[i]);
-                        }
-                    }
-
-                    temp += string.Join(", ", values) + "</li>";
-
-                    if (!result.Contains(temp)) {
-                        result += temp;
-                    }
-                }
+            int result = 0;
+            List<int> octalNum = new List<int>();
+            for (int i = 0; n != 0; i++) {
+                result += (int)MathF.Pow(10, i) * (n % 8);
+                n /= 8;
             }
 
             return result;
         }
-    
-        public static async Task GetAudioStream(string word) {
-            using (var client = new HttpClient()) {
-                if (!File.Exists("output/collection.media/" + word + ".mp3")) {
-                    
-                    string formatedString = word;
-
-                    for (int j = 0; j < formatedString.Length; j++) {
-                        if (formatedString[j] > 127) {
-                            char c = formatedString[j];
-                            formatedString = formatedString.Remove(j, 1);
-                            formatedString = formatedString.Insert(j, "0" + DecToOctal((int)c).ToString());
-                        }
-                    }
-                    
-                    try {
-                        using (var s = client.GetStreamAsync("http://lexin.nada.kth.se/sound/" + formatedString + ".mp3")) {
-                            using (var fs = new FileStream("output/collection.media/" + word + ".mp3", FileMode.OpenOrCreate)) {
-                                await s.Result.CopyToAsync(fs);
-                            }
-                        }
-                    } catch {
-                        File.Delete("output/collection.media/" + word + ".mp3");
-                    }
-                }
-            }
-        }
-
     }
 }
