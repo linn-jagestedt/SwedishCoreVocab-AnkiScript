@@ -12,15 +12,6 @@ function getHue(text, lastHue) {
 	return randomHue;
 } 
 
-function setRubyColor() {
-	let lastHue = 0;
-	$('#japanese ruby').each(function() {
-		var hue = getHue($(this).text(), lastHue);
-		$(this).css("color", getHsl(hue));
-		lastHue = hue;
-	});
-} 
-
 function setListColor() {
 	let lastHue = 0;
 	$('li').each(function() {
