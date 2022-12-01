@@ -1,6 +1,6 @@
 # Swedish Core Vocabulary Deck
 
-This program is written to generate a anki deck based on the words in Kelly (Keywords for Language Learning) and english translation and definiitions from The People's dictionary. 
+This program is written to generate an Anki deck based on the words in Kelly (Keywords for Language Learning) and english translation and definiitions from The People's dictionary. 
 
 - Kelly: https://spraakbanken.gu.se/en/resources/kelly
 - The People's Dictionary: https://folkets-lexikon.csc.kth.se/folkets/
