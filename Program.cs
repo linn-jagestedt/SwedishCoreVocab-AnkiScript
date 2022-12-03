@@ -50,6 +50,7 @@ namespace DeckGenerator
             }
 
             List<AnkiCard> Deck = new List<AnkiCard>();
+            List<string> Missing = new List<string>();
 
             for (int i = 0; i < wordList.Keys.Count(); i++) 
             {
@@ -82,6 +83,11 @@ namespace DeckGenerator
                                 }
                             }
                         }
+
+                        if (wordClass != "abreviation" && wordClass != "numeral" && wordClass != "name") {
+                            Missing.Add(question);
+                        }
+
                         continue;
                     }
 
@@ -93,11 +99,18 @@ namespace DeckGenerator
                         example = GetExample(word.Key, sweToEngDict);
                     }
 
+                    string abreviations = "";
+
+                    if (sweToEngDict.AbreviationByWord.ContainsKey(word.Key)) {
+                        abreviations = sweToEngDict.AbreviationByWord[word.Key][0];
+                    }
+
                     AnkiCard field = new AnkiCard {
                         Question = word.Key + " (" + wordClass + ")",
                         Word = word.Key,
                         Class = wordClass,
                         Gramar = props.Gramar,
+                        Abreviations = abreviations,
                         Definition = definition,
                         Example = example.Item1,
                         ExampleTranslated = example.Item2,
@@ -114,8 +127,7 @@ namespace DeckGenerator
                 }
             }
 
-            System.IO.File.WriteAllText("output/Deck.tsv", string.Join("\n", Deck));
-            
+            System.IO.File.WriteAllText("output/Deck.tsv", string.Join("\n", Deck));            
         }
 
         public static string GetDefinitions(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
@@ -290,6 +302,7 @@ namespace DeckGenerator
             else if (wordClass == "in") return "interjection";
             else if (wordClass == "kn") return "conjunction";
             else if (wordClass == "pm") return "name";
+            else if (wordClass == "abbrev") return "abreviation";
             else return wordClass;
         }
 

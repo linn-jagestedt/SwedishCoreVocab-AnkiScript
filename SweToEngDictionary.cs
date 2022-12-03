@@ -63,12 +63,14 @@ namespace DeckGenerator
         public Dictionary<string, DictEntry> DictEntryByWord;
         public Dictionary<string, List<(string, string)>> WordAndClassByInflection;
         public Dictionary<string, List<string>> WordByDerivation;
+        public Dictionary<string, List<string>> AbreviationByWord;
         public HashSet<string> HasAudio;
         public SweToEngDictionary(XmlDictionary dictionary)
         {
             DictEntryByWord = new Dictionary<string, DictEntry>();
             WordAndClassByInflection = new Dictionary<string, List<(string, string)>>();
             WordByDerivation = new Dictionary<string, List<string>>();
+            AbreviationByWord = new Dictionary<string, List<string>>();
             HasAudio = new HashSet<string>();
 
             foreach (XmlWord word in dictionary.Words) 
@@ -76,6 +78,16 @@ namespace DeckGenerator
                 if (word.Class == "rg") {
                     continue;
                 }
+
+                if (word.Class == "abbrev" && word.Definition != null) {
+                    if (!AbreviationByWord.ContainsKey(word.Value)) {
+                        AbreviationByWord.Add(word.Definition.Value, new List<string>());
+                    }
+
+                    AbreviationByWord[word.Definition.Value].Add(word.Value);
+                    continue;
+                }
+
 
                 // Add word
 

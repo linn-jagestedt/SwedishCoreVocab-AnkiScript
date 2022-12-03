@@ -6,6 +6,7 @@ namespace DeckGenerator
         public string Word = "";
         public string Class = "";
         public string Gramar = "";
+        public string Abreviations = "";
         public string Definition = "";
         public string Example = "";
         public string ExampleTranslated = "";
@@ -19,6 +20,7 @@ namespace DeckGenerator
             Word = "";
             Class = "";
             Gramar = "";
+            Abreviations = "";
             Definition = "";
             Example = "";
             ExampleTranslated = "";
@@ -33,7 +35,8 @@ namespace DeckGenerator
             Question, 
             Word, 
             Class, 
-            Gramar, 
+            Gramar,
+            Abreviations, 
             Definition, 
             Example, 
             ExampleTranslated, 
