@@ -55,6 +55,18 @@ namespace DeckGenerator
 
                 ExamplesByClass[key].AddRange(examples);
             }
+
+            if (word.Idioms != null) {
+                if (!ExamplesByClass.ContainsKey(key)) {
+                    ExamplesByClass.Add(key, new List<(string, string)>());
+                }
+
+                IEnumerable<(string, string)> examples = word.Idioms.Select(
+                    x => (x.Value, x.Translation == null ? "" : x.Translation.Value)
+                );
+
+                ExamplesByClass[key].AddRange(examples);
+            }
         }
     }
 
@@ -75,9 +87,17 @@ namespace DeckGenerator
 
             foreach (XmlWord word in dictionary.Words) 
             {  
-                if (word.Class == "rg") {
-                    continue;
+                // Add word
+
+                if (!new string[] { "rg", "abbrev", "pm" }.Contains(word.Class)) {
+                    if (!DictEntryByWord.ContainsKey(word.Value)) {
+                        DictEntryByWord.Add(word.Value, new DictEntry());
+                    }
+                    
+                    DictEntryByWord[word.Value].AddData(word);
                 }
+                
+                // Add abreviation pointing to words
 
                 if (word.Class == "abbrev" && word.Definition != null) {
                     if (!AbreviationByWord.ContainsKey(word.Value)) {
@@ -87,15 +107,6 @@ namespace DeckGenerator
                     AbreviationByWord[word.Definition.Value].Add(word.Value);
                     continue;
                 }
-
-
-                // Add word
-
-                if (!DictEntryByWord.ContainsKey(word.Value)) {
-                    DictEntryByWord.Add(word.Value, new DictEntry());
-                }
-
-                DictEntryByWord[word.Value].AddData(word);
 
                 // Add inflections pointing to words
 

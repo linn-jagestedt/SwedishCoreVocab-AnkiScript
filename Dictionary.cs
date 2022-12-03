@@ -63,6 +63,18 @@ namespace DeckGenerator
 
         [XmlElement(ElementName = "phonetic")]
         public XmlPhonetic Phonetic;
+
+        [XmlElement(ElementName = "idiom")]
+        public XmlIdiom[] Idioms;
+    }
+
+    public class XmlIdiom 
+    {
+        [XmlAttribute(AttributeName = "value")]
+        public string Value;
+
+        [XmlElement(ElementName = "translation")]
+        public XmlTranslation Translation;
     }
 
     public class XmlPhonetic {

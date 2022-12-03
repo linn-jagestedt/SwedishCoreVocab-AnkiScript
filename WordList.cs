@@ -24,6 +24,10 @@ namespace DeckGenerator
 
     public class WordList : Dictionary<string, List<WordProps>>
     {
+        public WordList() : base()
+        {
+        }
+
         public WordList(XmlLexicalResource wordList) : base()
         {
             foreach (XmlLexicalEntry entry in wordList.Lexicon.LexicalEntries) 

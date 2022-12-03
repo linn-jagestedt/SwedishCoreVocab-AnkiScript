@@ -40,10 +40,6 @@ namespace DeckGenerator
                 string[] tokens = lines[i].Split('\t');
                 tokens[0] = tokens[0].Replace(".", "").ToLower();
 
-                if (!wordList.ContainsKey(tokens[0])) {
-                    wordList.Add(tokens[0], new List<WordProps>());
-                }
-
                 if (!tagsByWord.ContainsKey(tokens[0])) {
                     tagsByWord.Add(tokens[0], tokens[1]);
                 }
@@ -56,12 +52,47 @@ namespace DeckGenerator
             {
                 KeyValuePair<string, List<WordProps>> word = wordList.ElementAt(i);
 
-                foreach (WordProps props in word.Value)  
+                // Download auidio for words
+
+                foreach(WordProps props in word.Value) 
                 {
                     if (sweToEngDict.HasAudio.Contains(word.Key)) {
                         Task task = GetAudioStream(word.Key);
                     }
+                }
 
+                // Copy tags to variations and derivations
+
+                foreach (WordProps props in word.Value) 
+                {
+                    if (tagsByWord.ContainsKey(word.Key)) 
+                    {
+                        if (sweToEngDict.WordAndClassByInflection.ContainsKey(word.Key)) 
+                        {
+                            foreach ((string, string) inflection in sweToEngDict.WordAndClassByInflection[word.Key]) {
+                                if (!tagsByWord.ContainsKey(inflection.Item1)) {
+                                    tagsByWord.Add(inflection.Item1, tagsByWord[word.Key]);
+                                } else {
+                                    tagsByWord[inflection.Item1] += " " + tagsByWord[word.Key];
+                                }
+                            }
+                        }
+
+                        if (sweToEngDict.WordByDerivation.ContainsKey(word.Key)) 
+                        {
+                            foreach (string derivation in sweToEngDict.WordByDerivation[word.Key]) {
+                                if (!tagsByWord.ContainsKey(derivation)) {
+                                    tagsByWord.Add(derivation, tagsByWord[word.Key]);
+                                } else {
+                                    tagsByWord[derivation] += " " + tagsByWord[word.Key];
+                                }
+                            }
+                        }
+                    }
+                }
+
+                foreach (WordProps props in word.Value)  
+                {
                     string wordClass = FormatWordClass(props.Class);
                     string question = word.Key + " (" + wordClass + ")";
 
@@ -72,22 +103,11 @@ namespace DeckGenerator
 
                     string definition = GetDefinitions(word.Key, props.Class, sweToEngDict);
 
-                    // If no defititions for the word is found, copy it's tag to it's inflections
-                    if (definition == "") {
-                        if (tagsByWord.ContainsKey(word.Key) && sweToEngDict.WordAndClassByInflection.ContainsKey(word.Key)) {
-                            foreach ((string, string) inflection in sweToEngDict.WordAndClassByInflection[word.Key]) {
-                                if (!tagsByWord.ContainsKey(inflection.Item1)) {
-                                    tagsByWord.Add(inflection.Item1, tagsByWord[word.Key]);
-                                } else {
-                                    tagsByWord[inflection.Item1] += " " + tagsByWord[word.Key];
-                                }
-                            }
+                    // If no defititions for the word is found, add it to the missing list
+                    if (definition == "")  {
+                        if (word.Value.Count() < 2) {
+                            Missing.Add($"{word.Key}\t{props.Class}");
                         }
-
-                        if (wordClass != "abreviation" && wordClass != "numeral" && wordClass != "name") {
-                            Missing.Add(question);
-                        }
-
                         continue;
                     }
 
@@ -127,7 +147,8 @@ namespace DeckGenerator
                 }
             }
 
-            System.IO.File.WriteAllText("output/Deck.tsv", string.Join("\n", Deck));            
+            System.IO.File.WriteAllText("output/Deck.tsv", string.Join("\n", Deck));    
+            System.IO.File.WriteAllText("output/Missing.txt", string.Join("\n", Missing));                    
         }
 
         public static string GetDefinitions(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
@@ -293,10 +314,8 @@ namespace DeckGenerator
             else if (wordClass == "nn") return"noun";
             else if (wordClass == "vb") return "verb";
             else if (wordClass == "nn") return "noun";
-            else if (wordClass == "av") return "adjective";
             else if (wordClass == "jj") return "adjective";
             else if (wordClass == "ab") return "adverb";
-            else if (wordClass == "nl") return "numeral";
             else if (wordClass == "rg") return "numeral";
             else if (wordClass == "pn") return "prounoun";
             else if (wordClass == "in") return "interjection";
