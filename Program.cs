@@ -1,14 +1,220 @@
 ﻿using System;
 using System.Text;
-using AnkiNet;
 using System.Linq;
-using System.Collections.Generic;
+using System.Net;
+using System.Text.Json;
 
 namespace DeckGenerator
 {
+    public enum CEFR_LEVEL {
+        A1 = 2, A2 = 3, B1 = 4, B2 = 5, C1 = 6, NAN = 0
+    }
+
     public static class Program 
     {
+        public static SweToEngDictionary SweToEngDict;
+        public static Dictionary<CEFR_LEVEL, List<AnkiCard>> Decks;
+        public static List<string> CachedSentences;
+        public static readonly CEFR_LEVEL[] LEVELS = new CEFR_LEVEL[] { CEFR_LEVEL.A1, CEFR_LEVEL.A2, CEFR_LEVEL.B1, CEFR_LEVEL.B2, CEFR_LEVEL.C1 };
+
         public static void Main() 
+        {
+            CreateOutputFolders();
+
+            string[] lines = System.IO.File.ReadAllLines("src/SVALex_Korp.csv");
+            string[] fields = lines[0].Split("\t");
+
+            SweToEngDict = new SweToEngDictionary(XmlDictionary.Deserialize("src/People's_Dictionary.xml"));
+            Decks = new Dictionary<CEFR_LEVEL, List<AnkiCard>>();
+
+            CachedSentences = LoadCacheCachedSentences();
+
+            foreach (CEFR_LEVEL key in LEVELS) {
+                Decks.Add(key, new List<AnkiCard>());
+            }
+
+            int count = 1;
+            System.Threading.Tasks.Parallel.For(1, lines.Length, new ParallelOptions { MaxDegreeOfParallelism = 3 }, (i) => 
+            {                
+                string[] tokens = lines[i].Split("\t");
+
+                CEFR_LEVEL key = CEFR_LEVEL.C1;
+
+                if (float.Parse(tokens[50]) > 0.0) key = CEFR_LEVEL.A1;
+                else if (float.Parse(tokens[26]) > 0.0) key = CEFR_LEVEL.A2;
+                else if (float.Parse(tokens[20]) > 0.0) key = CEFR_LEVEL.B1;
+                else if (float.Parse(tokens[28]) > 0.0) key = CEFR_LEVEL.B2;
+                else if (float.Parse(tokens[2]) > 2.0) key = CEFR_LEVEL.A1;
+                else if (float.Parse(tokens[3]) > 2.0) key = CEFR_LEVEL.A2;
+                else if (float.Parse(tokens[4]) > 2.0) key = CEFR_LEVEL.B1;
+                else if (float.Parse(tokens[5]) > 2.0) key = CEFR_LEVEL.B2;
+
+                if (GenerateCard(tokens, key, out AnkiCard card)) {
+                    Decks[key].Add(card);
+                }
+
+                if (count % 100 == 0) {
+                    System.Console.WriteLine($"{count}/{lines.Length}");
+                }
+
+                count++;
+            });
+
+            foreach (CEFR_LEVEL key in LEVELS) {
+                System.IO.File.WriteAllText($"output/{key.ToString()}_Deck.tsv", string.Join("\n", Decks[key]));    
+            }
+        }
+        
+        public static List<string> LoadCacheCachedSentences() 
+        {   
+            List<string> sentences = new List<string>(); 
+            
+            foreach (CEFR_LEVEL level in LEVELS) 
+            {
+                if (!File.Exists($"output/{level}_Sentences.tsv")) {
+                    File.Create($"output/{level}_Sentences.tsv").Close();
+                } else {
+                    sentences.AddRange(File.ReadAllLines($"output/{level}_Sentences.tsv"));
+                }
+            }
+
+            return sentences;
+        }
+
+        public static bool GetCachedSentence(List<string> sentences, string word, string wordClass, out string sentence) 
+        {
+            for (int j = 0; j < sentences.Count; j++) {
+                string[] values = sentences[j].Split("\t");
+                if (values[0] == $"{word} ({wordClass})") {
+                    sentence = values[1];
+                    return true;
+                }
+            }
+            sentence = "";
+            return false;
+        }
+
+
+        public static bool GenerateCard(string[] tokens, CEFR_LEVEL level, out AnkiCard card) 
+        {
+            string word = tokens[0].Replace("_", " ").ToLower();
+
+            string wordClass = ConvertWordClass(tokens[1].Split('_')[0].ToLower());
+            string FormatedWordClass = FormatWordClass(tokens[1].Split('_')[0].ToLower());
+
+            string question = word + " (" + FormatedWordClass + ")";
+
+            string definition = SweToEngDict.GetDefinitions(word, wordClass);
+
+            string sentence = "";
+            if (!GetCachedSentence(CachedSentences, word, FormatedWordClass, out sentence)) {
+                sentence = CorpusSearch.GetSentence(word, wordClass);
+            }
+            
+            if (sentence != "") {
+                System.IO.File.AppendAllLines($"output/{level.ToString()}_Sentences.tsv", new string[] { $"{word} ({FormatedWordClass})\t{sentence}" });
+            } else {
+                sentence = SweToEngDict.GetExampleStrict(word, wordClass);
+            }
+
+            // if (sentence == "") {
+            //     System.Console.WriteLine($"No sentence found for: {word} ({wordClass})");
+            // }
+
+            string abreviations = "";
+            if (SweToEngDict.AbreviationByWord.ContainsKey(word)) {
+                abreviations = SweToEngDict.AbreviationByWord[word][0];
+            }
+
+            string tags = "";
+
+            if (float.Parse(tokens[50]) > 0.0) tags += "Rivstart_A1 ";
+            else if (float.Parse(tokens[26]) > 0.0) tags += "Rivstart_A2 ";
+            else if (float.Parse(tokens[20]) > 0.0) tags += "Rivstart_B1 ";
+            else if (float.Parse(tokens[28]) > 0.0) tags += "Rivstart_B2 ";
+
+            if (SweToEngDict.HasAudio.Contains(tokens[0])) {
+                AudioSearch.GetAudioStream(tokens[0]);
+            } 
+
+            string gramar = "";
+
+            if (wordClass == "nn") {
+                gramar = GetGender(tokens[1]);
+            } else if(wordClass == "vb") {
+                gramar = "att";
+            }
+
+            card = new AnkiCard {
+                Question = question,
+                Word = word,
+                Class = FormatedWordClass,
+                ClassAbbreviated = wordClass,
+                Gender = gramar,
+                Abreviations = abreviations,
+                Definition = definition,
+                Sentence = sentence,
+                Audio = File.Exists("output/collection.media/" + word + ".mp3") ? "[sound:" + word + ".mp3]" : "",
+                Frequency = tokens[(int)level],
+                Tags = tags
+            };
+
+            if (Decks.Where(x => x.Value.Where(x => x.Question == question).Count() > 0).Count() > 0) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+
+        public static string GetGender(string wordClass) 
+        {
+            string[] temp = wordClass.Split('_');
+
+            if (temp.Length > 1) {
+                if (temp[1] == "UTR") {
+                    return "en";
+                } else if (temp[1] == "NEU") {
+                    return "ett";
+                }
+            }
+
+            return "";
+        }
+
+        public static string ConvertWordClass(string wordClass) 
+        {
+            if (wordClass == "vbm") return "vb";
+            else if (wordClass == "ppm") return "pp";
+            else if (wordClass == "abm") return "ab";
+            else if (wordClass == "pnm") return "pn";
+            else if (wordClass == "nnm") return "nn";
+            else if (wordClass == "pmm") return "pm";
+            else if (wordClass == "jjm") return "jj";
+            else if (wordClass == "inm") return "in";
+            else if (wordClass == "knm") return "kn";
+            else if (wordClass == "snm") return "kn";
+            else return wordClass;
+        }
+
+        public static string FormatWordClass(string wordClass) 
+        {
+            if (wordClass == "") return "";
+            else if (wordClass == "pp") return "preposition";
+            else if (wordClass == "nn") return"noun";
+            else if (wordClass == "vb") return "verb";
+            else if (wordClass == "nn") return "noun";
+            else if (wordClass == "jj") return "adjective";
+            else if (wordClass == "ab") return "adverb";
+            else if (wordClass == "rg") return "numeral";
+            else if (wordClass == "pn") return "prounoun";
+            else if (wordClass == "in") return "interjection";
+            else if (wordClass == "kn") return "conjunction";
+            else if (wordClass == "pm") return "name";
+            else if (wordClass == "abbrev") return "abreviation";
+            else return wordClass;
+        }  
+
+        public static void CreateOutputFolders() 
         {
             if (!Directory.Exists("output")) {
                 Directory.CreateDirectory("output");
@@ -29,312 +235,6 @@ namespace DeckGenerator
             foreach (string file in Directory.GetFiles("src/collection.media")) {
                 System.IO.File.Copy(file, "output/collection.media/" + file.Split('/').Last(), true);
             }
-
-            SweToEngDictionary sweToEngDict = new SweToEngDictionary(XmlDictionary.Deserialize("src/People's_Dictionary.xml"));
-            WordList wordList = new WordList(XmlLexicalResource.Deserialize("src/Common_Words.xml"));
-
-            string[] lines = System.IO.File.ReadAllLines("src/Rivstart_Words.tsv");
-            Dictionary<string, string> tagsByWord = new Dictionary<string, string>();
-
-            for (int i = 0; i < lines.Length; i++) {
-                string[] tokens = lines[i].Split('\t');
-                tokens[0] = tokens[0].Replace(".", "").ToLower();
-
-                if (!tagsByWord.ContainsKey(tokens[0])) {
-                    tagsByWord.Add(tokens[0], tokens[1]);
-                }
-            }
-
-            List<AnkiCard> Deck = new List<AnkiCard>();
-            List<string> Missing = new List<string>();
-
-            for (int i = 0; i < wordList.Keys.Count(); i++) 
-            {
-                KeyValuePair<string, List<WordProps>> word = wordList.ElementAt(i);
-
-                // Download auidio for words
-
-                foreach(WordProps props in word.Value) 
-                {
-                    if (sweToEngDict.HasAudio.Contains(word.Key)) {
-                        Task task = GetAudioStream(word.Key);
-                    }
-                }
-
-                // Copy tags to variations and derivations
-
-                foreach (WordProps props in word.Value) 
-                {
-                    if (tagsByWord.ContainsKey(word.Key)) 
-                    {
-                        if (sweToEngDict.WordAndClassByInflection.ContainsKey(word.Key)) 
-                        {
-                            foreach ((string, string) inflection in sweToEngDict.WordAndClassByInflection[word.Key]) {
-                                if (!tagsByWord.ContainsKey(inflection.Item1)) {
-                                    tagsByWord.Add(inflection.Item1, tagsByWord[word.Key]);
-                                } else {
-                                    tagsByWord[inflection.Item1] += " " + tagsByWord[word.Key];
-                                }
-                            }
-                        }
-
-                        if (sweToEngDict.WordByDerivation.ContainsKey(word.Key)) 
-                        {
-                            foreach (string derivation in sweToEngDict.WordByDerivation[word.Key]) {
-                                if (!tagsByWord.ContainsKey(derivation)) {
-                                    tagsByWord.Add(derivation, tagsByWord[word.Key]);
-                                } else {
-                                    tagsByWord[derivation] += " " + tagsByWord[word.Key];
-                                }
-                            }
-                        }
-                    }
-                }
-
-                foreach (WordProps props in word.Value)  
-                {
-                    string wordClass = FormatWordClass(props.Class);
-                    string question = word.Key + " (" + wordClass + ")";
-
-                    // If the word is a duplicate, skip it
-                    if (Deck.Where(x => x.Question.ToString() == question).Count() > 0) {
-                        continue;
-                    }
-
-                    string definition = GetDefinitions(word.Key, props.Class, sweToEngDict);
-
-                    // If no defititions for the word is found, add it to the missing list
-                    if (definition == "")  {
-                        if (word.Value.Count() < 2) {
-                            Missing.Add($"{word.Key}\t{props.Class}");
-                        }
-                        continue;
-                    }
-
-                    (string, string) example;
-
-                    if (props.Class != "") {
-                        example = GetExampleStrict(word.Key, props.Class, sweToEngDict);
-                    } else {
-                        example = GetExample(word.Key, sweToEngDict);
-                    }
-
-                    string abreviations = "";
-
-                    if (sweToEngDict.AbreviationByWord.ContainsKey(word.Key)) {
-                        abreviations = sweToEngDict.AbreviationByWord[word.Key][0];
-                    }
-
-                    AnkiCard field = new AnkiCard {
-                        Question = word.Key + " (" + wordClass + ")",
-                        Word = word.Key,
-                        Class = wordClass,
-                        Gramar = props.Gramar,
-                        Abreviations = abreviations,
-                        Definition = definition,
-                        Example = example.Item1,
-                        ExampleTranslated = example.Item2,
-                        Audio = File.Exists("output/collection.media/" + word.Key + ".mp3") ? "[sound:" + word.Key + ".mp3]" : "",
-                        KellyID = props.KellyID,
-                        Tags = tagsByWord.ContainsKey(word.Key) ? tagsByWord[word.Key] : ""
-                    };
-
-                    Deck.Add(field);
-                }
-
-                if (i % 500 == 0) {
-                    System.Console.WriteLine($"{i}/{wordList.Keys.Count()}");
-                }
-            }
-
-            System.IO.File.WriteAllText("output/Deck.tsv", string.Join("\n", Deck));    
-            System.IO.File.WriteAllText("output/Missing.txt", string.Join("\n", Missing));                    
-        }
-
-        public static string GetDefinitions(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
-        {
-            List<List<string>> translations = new List<List<string>>();
-
-            translations.AddRange(GetTranslationStrict(searchParam, wordClass, sweToEngDict));
-            translations.Add(new List<string> { GetDefinitionStrict(searchParam, wordClass, sweToEngDict) });
-
-            if (sweToEngDict.WordByDerivation.ContainsKey(searchParam)) {
-                foreach (string word in sweToEngDict.WordByDerivation[searchParam]) {
-                    translations.AddRange(GetTranslation(word, sweToEngDict));
-                }
-            }
-
-            if (sweToEngDict.WordAndClassByInflection.ContainsKey(searchParam)) 
-            {
-                foreach ((string, string) wordAndClass in sweToEngDict.WordAndClassByInflection[searchParam]) 
-                {
-                    if (wordClass == wordAndClass.Item2) {
-                        translations.AddRange(GetTranslationStrict(wordAndClass.Item1, wordAndClass.Item2, sweToEngDict));
-                        translations.Add(new List<string> { GetDefinitionStrict(wordAndClass.Item1, wordAndClass.Item2, sweToEngDict) });
-                    }
-                }
-
-               
-                // If no translations are found so far, do a loose search
-                /* if (translations.SelectMany(x => x.SelectMany(x => x)).Count() < 1) 
-                {
-                    foreach ((string, string) wordAndClass in sweToEngDict.WordAndClassByInflection[searchParam]) 
-                    {
-                        translations.AddRange(GetTranslation(wordAndClass.Item1, sweToEngDict));
-                        translations.Add(GetDefinition(wordAndClass.Item1, sweToEngDict));
-                    }
-                } */
-            }
-
-            string result = GenerateDefinition(translations);
-            return result == "" ? "" : "<ul>" + result + "</ul>"; 
-        }
-
-        public static List<List<string>> GetTranslation(string searchParam, SweToEngDictionary sweToEngDict) 
-        {
-            if (sweToEngDict.DictEntryByWord.ContainsKey(searchParam)) {
-                return sweToEngDict.DictEntryByWord[searchParam].TranslationsByClass.SelectMany(x => x.Value).ToList();
-            }
-
-            return new List<List<string>>();
-        }
-
-        public static List<List<string>> GetTranslationStrict(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
-        {
-            if (sweToEngDict.DictEntryByWord.ContainsKey(searchParam)) {
-                if (sweToEngDict.DictEntryByWord[searchParam].TranslationsByClass.ContainsKey(wordClass)) {
-                    return sweToEngDict.DictEntryByWord[searchParam].TranslationsByClass[wordClass];
-                }
-            }
-
-            return new List<List<string>>();
-        }
-
-        public static List<string> GetDefinition(string searchParam, SweToEngDictionary sweToEngDict) 
-        {
-            if (sweToEngDict.DictEntryByWord.ContainsKey(searchParam)) {
-                return sweToEngDict.DictEntryByWord[searchParam].DefinitionByClass.Select(x => x.Value).ToList();
-            }
-
-            return new List<string>();
-        }
-
-        public static string GetDefinitionStrict(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
-        {
-            if (sweToEngDict.DictEntryByWord.ContainsKey(searchParam)) {
-                if (sweToEngDict.DictEntryByWord[searchParam].DefinitionByClass.ContainsKey(wordClass)) {
-                    return sweToEngDict.DictEntryByWord[searchParam].DefinitionByClass[wordClass];
-                }
-            }
-
-            return "";
-        }
-
-        public static (string, string) GetExample(string searchParam, SweToEngDictionary sweToEngDict) 
-        {
-            if (sweToEngDict.DictEntryByWord.ContainsKey(searchParam)) {
-                return sweToEngDict.DictEntryByWord[searchParam].ExamplesByClass.SelectMany(x => x.Value).FirstOrDefault();
-            }
-
-            return ("", "");
-        }
-
-        public static (string, string) GetExampleStrict(string searchParam, string wordClass, SweToEngDictionary sweToEngDict) 
-        {
-            if (sweToEngDict.DictEntryByWord.ContainsKey(searchParam)) {
-                if (sweToEngDict.DictEntryByWord[searchParam].ExamplesByClass.ContainsKey(wordClass)) {
-                    return sweToEngDict.DictEntryByWord[searchParam].ExamplesByClass[wordClass].FirstOrDefault();
-                }
-            }
-
-            return ("", "");
-        }
-
-        public static string GenerateDefinition(List<List<string>> definitions) 
-        {
-            string result = "";
-
-            foreach (List<string> definition in definitions)
-            {
-                definition.RemoveAll(x => x == "");
-
-                if (definition.Count() < 1) {
-                    continue;
-                }
-                
-                List<string> values = new List<string>();
-
-                for (int i = 0; i < definition.Count(); i++)
-                {
-                    if (definition.IndexOf(definition[i]) >= i) {
-                        values.Add(definition[i]);
-                    }
-                }
-
-                string temp = "<li>" + string.Join(", ", values) + "</li>";
-
-                if (!result.Contains(temp)) {
-                    result += temp;
-                }
-            }
-
-            return result;
-        }
-    
-        public static async Task GetAudioStream(string word) {
-            using (var client = new HttpClient()) {
-                if (!File.Exists("output/collection.media/" + word + ".mp3")) {
-                    
-                    string formatedString = word;
-
-                    for (int j = 0; j < formatedString.Length; j++) {
-                        if (formatedString[j] > 127) {
-                            char c = formatedString[j];
-                            formatedString = formatedString.Remove(j, 1);
-                            formatedString = formatedString.Insert(j, "0" + ((int)c).ToOctal().ToString());
-                        }
-                    }
-                    
-                    try {
-                        using (var s = client.GetStreamAsync("http://lexin.nada.kth.se/sound/" + formatedString + ".mp3")) {
-                            using (var fs = new FileStream("output/collection.media/" + word + ".mp3", FileMode.OpenOrCreate)) {
-                                await s.Result.CopyToAsync(fs);
-                            }
-                        }
-                    } catch {
-                        File.Delete("output/collection.media/" + word + ".mp3");
-                    }
-                }
-            }
-        }
-
-        public static string FormatWordClass(string wordClass) 
-        {
-            if (wordClass == "pp") return "preposition";
-            else if (wordClass == "nn") return"noun";
-            else if (wordClass == "vb") return "verb";
-            else if (wordClass == "nn") return "noun";
-            else if (wordClass == "jj") return "adjective";
-            else if (wordClass == "ab") return "adverb";
-            else if (wordClass == "rg") return "numeral";
-            else if (wordClass == "pn") return "prounoun";
-            else if (wordClass == "in") return "interjection";
-            else if (wordClass == "kn") return "conjunction";
-            else if (wordClass == "pm") return "name";
-            else if (wordClass == "abbrev") return "abreviation";
-            else return wordClass;
-        }
-
-        public static int ToOctal(this int n)
-        {
-            int result = 0;
-            List<int> octalNum = new List<int>();
-            for (int i = 0; n != 0; i++) {
-                result += (int)MathF.Pow(10, i) * (n % 8);
-                n /= 8;
-            }
-
-            return result;
         }
     }
 }

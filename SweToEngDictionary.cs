@@ -11,13 +11,13 @@ namespace DeckGenerator
     {   
         public Dictionary<string, string> DefinitionByClass;
         public Dictionary<string, List<List<string>>> TranslationsByClass;
-        public Dictionary<string, List<(string, string)>> ExamplesByClass;
+        public Dictionary<string, List<string>> ExamplesByClass;
 
         public DictEntry() 
         {
             DefinitionByClass = new Dictionary<string, string>();
             TranslationsByClass = new Dictionary<string, List<List<string>>>();
-            ExamplesByClass = new Dictionary<string, List<(string, string)>>();
+            ExamplesByClass = new Dictionary<string, List<string>>();
         }
 
         public void AddData(XmlWord word) 
@@ -46,26 +46,18 @@ namespace DeckGenerator
 
             if (word.Examples != null) {
                 if (!ExamplesByClass.ContainsKey(key)) {
-                    ExamplesByClass.Add(key, new List<(string, string)>());
+                    ExamplesByClass.Add(key, new List<string>());
                 }
 
-                IEnumerable<(string, string)> examples = word.Examples.Select(
-                    x => (x.Value, x.Translation == null ? "" : x.Translation.Value)
-                );
-
-                ExamplesByClass[key].AddRange(examples);
+                ExamplesByClass[key].AddRange(word.Examples.Select(x => x.Value));
             }
 
             if (word.Idioms != null) {
                 if (!ExamplesByClass.ContainsKey(key)) {
-                    ExamplesByClass.Add(key, new List<(string, string)>());
+                    ExamplesByClass.Add(key, new List<string>());
                 }
 
-                IEnumerable<(string, string)> examples = word.Idioms.Select(
-                    x => (x.Value, x.Translation == null ? "" : x.Translation.Value)
-                );
-
-                ExamplesByClass[key].AddRange(examples);
+                ExamplesByClass[key].AddRange( word.Idioms.Select(x => x.Value));
             }
         }
     }
@@ -140,6 +132,136 @@ namespace DeckGenerator
                     }
                 }
             }
+        }
+
+        public string GetDefinitions(string searchParam, string wordClass) 
+        {
+            List<List<string>> translations = new List<List<string>>();
+
+            translations.AddRange(GetTranslationStrict(searchParam, wordClass));
+            translations.Add(new List<string> { GetDefinitionStrict(searchParam, wordClass) });
+
+            if (WordByDerivation.ContainsKey(searchParam)) {
+                foreach (string word in WordByDerivation[searchParam]) {
+                    translations.AddRange(GetTranslation(word));
+                }
+            }
+
+            if (WordAndClassByInflection.ContainsKey(searchParam)) 
+            {
+                foreach ((string, string) wordAndClass in WordAndClassByInflection[searchParam]) 
+                {
+                    if (wordClass == wordAndClass.Item2) {
+                        translations.AddRange(GetTranslationStrict(wordAndClass.Item1, wordAndClass.Item2));
+                        translations.Add(new List<string> { GetDefinitionStrict(wordAndClass.Item1, wordAndClass.Item2) });
+                    }
+                }
+
+            
+                // If no translations are found so far, do a loose search
+                /* if (translations.SelectMany(x => x.SelectMany(x => x)).Count() < 1) 
+                {
+                    foreach ((string, string) wordAndClass in sweToEngDict.WordAndClassByInflection[searchParam]) 
+                    {
+                        translations.AddRange(GetTranslation(wordAndClass.Item1, sweToEngDict));
+                        translations.Add(GetDefinition(wordAndClass.Item1, sweToEngDict));
+                    }
+                } */
+            }
+
+            string result = GenerateDefinition(translations);
+            return result == "" ? "" : "<ul>" + result + "</ul>"; 
+        }
+
+        public List<List<string>> GetTranslation(string searchParam) 
+        {
+            if (DictEntryByWord.ContainsKey(searchParam)) {
+                return DictEntryByWord[searchParam].TranslationsByClass.SelectMany(x => x.Value).ToList();
+            }
+
+            return new List<List<string>>();
+        }
+
+        public List<List<string>> GetTranslationStrict(string searchParam, string wordClass) 
+        {
+            if (DictEntryByWord.ContainsKey(searchParam)) {
+                if (DictEntryByWord[searchParam].TranslationsByClass.ContainsKey(wordClass)) {
+                    return DictEntryByWord[searchParam].TranslationsByClass[wordClass];
+                }
+            }
+
+            return new List<List<string>>();
+        }
+
+        public List<string> GetDefinition(string searchParam) 
+        {
+            if (DictEntryByWord.ContainsKey(searchParam)) {
+                return DictEntryByWord[searchParam].DefinitionByClass.Select(x => x.Value).ToList();
+            }
+
+            return new List<string>();
+        }
+
+        public string GetDefinitionStrict(string searchParam, string wordClass) 
+        {
+            if (DictEntryByWord.ContainsKey(searchParam)) {
+                if (DictEntryByWord[searchParam].DefinitionByClass.ContainsKey(wordClass)) {
+                    return DictEntryByWord[searchParam].DefinitionByClass[wordClass];
+                }
+            }
+
+            return "";
+        }
+
+        public string GetExample(string searchParam) 
+        {
+            if (DictEntryByWord.ContainsKey(searchParam)) {
+                return DictEntryByWord[searchParam].ExamplesByClass.SelectMany(x => x.Value).FirstOrDefault();
+            }
+
+            return "";
+        }
+
+        public string GetExampleStrict(string searchParam, string wordClass) 
+        {
+            if (DictEntryByWord.ContainsKey(searchParam)) {
+                if (DictEntryByWord[searchParam].ExamplesByClass.ContainsKey(wordClass)) {
+                    return DictEntryByWord[searchParam].ExamplesByClass[wordClass].FirstOrDefault();
+                }
+            }
+
+            return "";
+        }
+
+        public static string GenerateDefinition(List<List<string>> definitions) 
+        {
+            string result = "";
+
+            foreach (List<string> definition in definitions)
+            {
+                definition.RemoveAll(x => x == "");
+
+                if (definition.Count() < 1) {
+                    continue;
+                }
+                
+                List<string> values = new List<string>();
+
+                for (int i = 0; i < definition.Count(); i++)
+                {
+                    if (definition.IndexOf(definition[i]) >= i) {
+                        values.Add(definition[i]);
+                    }
+                }
+
+                string temp = "<li>" + string.Join(", ", values) + "</li>";
+
+                if (!result.Contains(temp)) {
+                    result += temp;
+                }
+            }
+
+            return result;
         }
     }
 }

@@ -1,17 +1,17 @@
 namespace DeckGenerator 
 {
-    public struct AnkiCard 
+    public class AnkiCard 
     {
         public string Question = "";
         public string Word = "";
         public string Class = "";
-        public string Gramar = "";
+        public string ClassAbbreviated = "";
+        public string Gender = "";
         public string Abreviations = "";
         public string Definition = "";
-        public string Example = "";
-        public string ExampleTranslated = "";
+        public string Sentence = "";
         public string Audio = "";
-        public string KellyID = "";
+        public string Frequency = "";
         public string Tags = "";
 
         public AnkiCard() 
@@ -19,13 +19,13 @@ namespace DeckGenerator
             Question = "";
             Word = "";
             Class = "";
-            Gramar = "";
+            ClassAbbreviated = "";
+            Gender = "";
             Abreviations = "";
             Definition = "";
-            Example = "";
-            ExampleTranslated = "";
+            Sentence = "";
             Audio = "";
-            KellyID = "";
+            Frequency = "";
             Tags = "";
         }
 
@@ -35,13 +35,12 @@ namespace DeckGenerator
             Question, 
             Word, 
             Class, 
-            Gramar,
+            Gender,
             Abreviations, 
             Definition, 
-            Example, 
-            ExampleTranslated, 
+            Sentence, 
             Audio, 
-            KellyID, 
+            Frequency, 
             Tags 
         };
     }
