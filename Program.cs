@@ -12,6 +12,9 @@ namespace DeckGenerator
 
     public static class Program 
     {
+        public static int test = 0;
+        public static Dictionary<string, string> TranslationsByWord;
+        public static Dictionary<string, string> ChapterByWord;
         public static SweToEngDictionary SweToEngDict;
         public static Dictionary<CEFR_LEVEL, List<AnkiCard>> Decks;
         public static List<string> CachedSentences;
@@ -21,7 +24,24 @@ namespace DeckGenerator
         {
             CreateOutputFolders();
 
-            string[] lines = System.IO.File.ReadAllLines("src/SVALex_Korp.csv");
+            ChapterByWord = new Dictionary<string, string>();
+            TranslationsByWord = new Dictionary<string, string>();
+            string[] lines = System.IO.File.ReadAllLines("src/Rivstart A1A2.tsv");
+
+            foreach (string line in lines) {
+                string[] temp = line.Split("\t");
+                string key = temp[0].ToLower().Replace(".", "");
+
+                if (!ChapterByWord.ContainsKey(key)) {
+                    ChapterByWord.Add(key, temp[4].Replace(" ", "_"));
+                }
+
+                if (!TranslationsByWord.ContainsKey(key)) {
+                    TranslationsByWord.Add(key, $"<ul><li>{temp[2]}</li></ul>");
+                }
+            }
+
+            lines = System.IO.File.ReadAllLines("src/SVALex_Korp.tsv");
             string[] fields = lines[0].Split("\t");
 
             SweToEngDict = new SweToEngDictionary(XmlDictionary.Deserialize("src/People's_Dictionary.xml"));
@@ -40,13 +60,21 @@ namespace DeckGenerator
 
                 CEFR_LEVEL key = CEFR_LEVEL.C1;
 
+                // Rivstart A1
                 if (float.Parse(tokens[50]) > 0.0) key = CEFR_LEVEL.A1;
+                // Rivstart A2
                 else if (float.Parse(tokens[26]) > 0.0) key = CEFR_LEVEL.A2;
+                // Rivstart B1
                 else if (float.Parse(tokens[20]) > 0.0) key = CEFR_LEVEL.B1;
+                // Rivstart B2
                 else if (float.Parse(tokens[28]) > 0.0) key = CEFR_LEVEL.B2;
+                // A1
                 else if (float.Parse(tokens[2]) > 2.0) key = CEFR_LEVEL.A1;
+                // A2
                 else if (float.Parse(tokens[3]) > 2.0) key = CEFR_LEVEL.A2;
+                // B1
                 else if (float.Parse(tokens[4]) > 2.0) key = CEFR_LEVEL.B1;
+                // B2
                 else if (float.Parse(tokens[5]) > 2.0) key = CEFR_LEVEL.B2;
 
                 if (GenerateCard(tokens, key, out AnkiCard card)) {
@@ -71,10 +99,10 @@ namespace DeckGenerator
             
             foreach (CEFR_LEVEL level in LEVELS) 
             {
-                if (!File.Exists($"output/{level}_Sentences.tsv")) {
-                    File.Create($"output/{level}_Sentences.tsv").Close();
+                if (!File.Exists($"src/{level}_Sentences.tsv")) {
+                    File.Create($"src/{level}_Sentences.tsv").Close();
                 } else {
-                    sentences.AddRange(File.ReadAllLines($"output/{level}_Sentences.tsv"));
+                    sentences.AddRange(File.ReadAllLines($"src/{level}_Sentences.tsv"));
                 }
             }
 
@@ -94,7 +122,6 @@ namespace DeckGenerator
             return false;
         }
 
-
         public static bool GenerateCard(string[] tokens, CEFR_LEVEL level, out AnkiCard card) 
         {
             string word = tokens[0].Replace("_", " ").ToLower();
@@ -104,16 +131,30 @@ namespace DeckGenerator
 
             string question = word + " (" + FormatedWordClass + ")";
 
+            if (Decks.Where(x => x.Value.Where(x => x.Question == question).Count() > 0).Count() > 0) {
+                card = null;
+                return false;
+            }
+
             string definition = SweToEngDict.GetDefinitions(word, wordClass);
+
+            if (definition == "") {
+                if (!TranslationsByWord.ContainsKey(word)) {
+                    card = null;
+                    return false;
+                } else {
+                    definition = TranslationsByWord[word];
+                }
+            }
 
             string sentence = "";
             if (!GetCachedSentence(CachedSentences, word, FormatedWordClass, out sentence)) {
-                sentence = CorpusSearch.GetSentence(word, wordClass);
-            }
-            
-            if (sentence != "") {
-                System.IO.File.AppendAllLines($"output/{level.ToString()}_Sentences.tsv", new string[] { $"{word} ({FormatedWordClass})\t{sentence}" });
-            } else {
+                // if (CorpusSearch.GetSentence(word, wordClass, out sentence)) {
+                //     System.IO.File.AppendAllLines($"output/{level.ToString()}_Sentences.tsv", new string[] { $"{word} ({FormatedWordClass})\t{sentence}" });
+                // } else {
+                //     sentence = SweToEngDict.GetExampleStrict(word, wordClass);
+                // }
+
                 sentence = SweToEngDict.GetExampleStrict(word, wordClass);
             }
 
@@ -132,6 +173,10 @@ namespace DeckGenerator
             else if (float.Parse(tokens[26]) > 0.0) tags += "Rivstart_A2 ";
             else if (float.Parse(tokens[20]) > 0.0) tags += "Rivstart_B1 ";
             else if (float.Parse(tokens[28]) > 0.0) tags += "Rivstart_B2 ";
+
+            if (ChapterByWord.ContainsKey(word)) {
+                tags += ChapterByWord[word];
+            }
 
             if (SweToEngDict.HasAudio.Contains(tokens[0])) {
                 AudioSearch.GetAudioStream(tokens[0]);
@@ -159,11 +204,7 @@ namespace DeckGenerator
                 Tags = tags
             };
 
-            if (Decks.Where(x => x.Value.Where(x => x.Question == question).Count() > 0).Count() > 0) {
-                return false;
-            } else {
-                return true;
-            }
+            return true;
         }
 
         public static string GetGender(string wordClass) 

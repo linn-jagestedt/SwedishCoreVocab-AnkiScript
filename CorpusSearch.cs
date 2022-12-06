@@ -15,6 +15,8 @@ namespace DeckGenerator
 
     public class Structs {
         public string lesson_level { get; set; }
+        public string lesson_cefr_level { get; set; }
+        public string level { get => lesson_level == null ? lesson_cefr_level == null ? "" : lesson_cefr_level : lesson_level; }
     }
 
     public class Sentence 
@@ -29,29 +31,29 @@ namespace DeckGenerator
     {
         public Sentence[] kwic { get; set; }
         public int hits { get; set; }
-        public string[] corpus_order;
+        public string[] corpus_order { get; set; }
         public string query_data { get; set; }
         public float time { get; set; }
     }   
 
     public static class CorpusSearch 
     {
-        public static string GetSentence(string word, string wordClass) 
+        public static bool GetSentence(string word, string wordClass, out string result) 
         {
             string url;
             string corpus = "COCTAILL-LT,SIC2";
 
             if (word.Contains(" ")) {
-                url = $"https://ws.spraakbanken.gu.se/ws/korp/v8/query?corpus={corpus}&default_context=1%20sentence&cqp=%5Blemma%20contains%20%22{word.Replace(" ", "_")}%22%5D&show_struct=lesson_level";
+                url = $"https://ws.spraakbanken.gu.se/ws/korp/v8/query?corpus={corpus}&default_context=1%20sentence&cqp=%5Blemma%20contains%20%22{word.Replace(" ", "_")}%22%5D&show_struct=lesson_level,lesson_cefr_level";
             } else {
-                url = $"https://ws.spraakbanken.gu.se/ws/korp/v8/query?corpus={corpus}&default_context=1%20sentence&cqp=%5Bpos%20%3D%20%22{wordClass.ToUpper()}%22%20%26%20lemma%20contains%20%22{word}%22%5D&show_struct=lesson_level";
+                url = $"https://ws.spraakbanken.gu.se/ws/korp/v8/query?corpus={corpus}&default_context=1%20sentence&cqp=%5Bpos%20%3D%20%22{wordClass.ToUpper()}%22%20%26%20lemma%20contains%20%22{word}%22%5D&show_struct=lesson_level,lesson_cefr_level";
             }
 
-            if (SearchCorpus(url, out string result)) {
-                return result;
+            if (SearchCorpus(url, out result)) {
+                return true;
             }
 
-            return "";
+            return false;
         }
 
         public static bool SearchCorpus(string url, out string result) 
@@ -77,7 +79,7 @@ namespace DeckGenerator
                 return false;
             } 
 
-            searchResult.kwic = searchResult.kwic.OrderBy(x => x.structs != null ? x.structs.lesson_level : "Z1").ToArray();
+            searchResult.kwic = searchResult.kwic.OrderBy(x => x.structs != null ? x.structs.level : "Z1").ToArray();
 
             result = TokensToString(searchResult.kwic[0].tokens);
 
