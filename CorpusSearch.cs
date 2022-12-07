@@ -38,27 +38,57 @@ namespace DeckGenerator
 
     public static class CorpusSearch 
     {
-        public static bool GetSentence(string word, string wordClass, out string result) 
-        {
-            string url;
-            string corpus = "COCTAILL-LT,SIC2";
+        public static bool LocalOnly = false;
+        private static Dictionary<string, List<string>> _cache;
+        public const string CACHEFILE = "output/Sentences.tsv";
 
-            if (word.Contains(" ")) {
-                url = $"https://ws.spraakbanken.gu.se/ws/korp/v8/query?corpus={corpus}&default_context=1%20sentence&cqp=%5Blemma%20contains%20%22{word.Replace(" ", "_")}%22%5D&show_struct=lesson_level,lesson_cefr_level";
-            } else {
-                url = $"https://ws.spraakbanken.gu.se/ws/korp/v8/query?corpus={corpus}&default_context=1%20sentence&cqp=%5Bpos%20%3D%20%22{wordClass.ToUpper()}%22%20%26%20lemma%20contains%20%22{word}%22%5D&show_struct=lesson_level,lesson_cefr_level";
+        public static bool GetSentence(string writtenForm, string wordClass, out string result) 
+        {
+            if (_cache == null) {
+                _cache = ReadCache();
             }
 
-            if (SearchCorpus(url, out result)) {
+            string[] sentences;
+            string word = $"{writtenForm} ({wordClass})";
+
+            if (_cache.ContainsKey(word)) {
+                result = _cache[word][0];
                 return true;
             }
 
+            if (LocalOnly) {
+                result = "";
+                return false;
+            }
+
+            //string corpus = "COCTAILL-LT,SIC2";
+            string corpus = "COCTAILL-LT";
+            
+            string url;
+
+            if (writtenForm.Contains(" ")) {
+                url = $"https://ws.spraakbanken.gu.se/ws/korp/v8/query?corpus={corpus}&default_context=1%20sentence&cqp=%5Blemma%20contains%20%22{writtenForm.Replace(" ", "_")}%22%5D&show_struct=lesson_level,lesson_cefr_level";
+            } else {
+                url = $"https://ws.spraakbanken.gu.se/ws/korp/v8/query?corpus={corpus}&default_context=1%20sentence&cqp=%5Bpos%20%3D%20%22{wordClass.ToUpper()}%22%20%26%20lemma%20contains%20%22{writtenForm}%22%5D&show_struct=lesson_level,lesson_cefr_level";
+            }
+
+            if (SearchCorpus(url, out sentences)) 
+            {
+                using (StreamWriter writer = new StreamWriter(OpenFileStream(CACHEFILE))) {
+                    writer.WriteLine($"{word}\t{string.Join("\t", sentences)}");
+                }
+  
+                result = sentences[0];
+                return true;
+            }
+                
+            result = "";
             return false;
         }
 
-        public static bool SearchCorpus(string url, out string result) 
+        public static bool SearchCorpus(string url, out string[] result) 
         {
-            result = "";
+            result = null;
 
             Task<string> jsonTask;
 
@@ -71,23 +101,57 @@ namespace DeckGenerator
             
             if (searchResult.kwic.Where(x => CountWords(x.tokens) < 20 && CountWords(x.tokens) > 3).Count() > 0) {
                 searchResult.kwic = searchResult.kwic.Where(x => CountWords(x.tokens) < 20 && CountWords(x.tokens) > 3).ToArray();
-            } else {
-                return false;
-            }
+            } else { return false; }
 
-            if (searchResult.kwic.Length < 1) {
-                return false;
-            } 
-
+            if (searchResult.kwic.Length < 1) { return false; } 
             searchResult.kwic = searchResult.kwic.OrderBy(x => x.structs != null ? x.structs.level : "Z1").ToArray();
 
-            result = TokensToString(searchResult.kwic[0].tokens);
+            result = searchResult.kwic.Select(x => TokensToString(x.tokens)).ToArray();
+            return true; 
+        }
 
-            if (result == "") {
-                return false; 
+        public static FileStream OpenFileStream(string filename)
+        {
+            bool Locked = true;
+            FileStream fileStream = null;
+
+            while (Locked == true) {
+                try {
+                    fileStream = File.Open(
+                        filename, 
+                        FileMode.Append, 
+                        FileAccess.Write, 
+                        FileShare.None
+                    );
+                    Locked = false;
+                } catch {
+                    Thread.Sleep(10); 
+                    Locked = true; 
+                }
             }
 
-            return true; 
+            return fileStream;
+        }
+
+        public static Dictionary<string, List<string>> ReadCache() 
+        {   
+            Dictionary<string, List<string>> sentences = new Dictionary<string, List<string>>(); 
+
+            if (!File.Exists(CACHEFILE)) {
+                File.Create(CACHEFILE).Close();
+            }
+
+            string[] lines = File.ReadAllLines(CACHEFILE);
+
+            foreach (string line in lines) {
+                string[] tokens = line.Split("\t");
+                sentences.Add(tokens[0], new List<string>());
+                for (int i = 1; i < tokens.Length; i++) {
+                    sentences[tokens[0]].Add(tokens[i]);
+                }
+            }
+
+            return sentences;
         }
 
         public static int CountWords(Token[] tokens) {
@@ -105,19 +169,26 @@ namespace DeckGenerator
             string result = "";
 
             foreach (Token token in tokens) {
-                if (token.word == "." || token.word == "," || token.word == ")" || token.word == "]" || token.word == "?" || token.word == "!" || token.word == ":")  {
+                if (token.word == "." || token.word == "," || token.word == ")" || token.word == "]" || token.word == "?" || token.word == "!" || token.word == ":")  
+                {
                     if (result != "") {
                         result = result.Substring(0, result.Length - 1);
                     }
                     result += token.word + " ";
-                } else if (token.word == "(" || token.word == "[") {
+                } 
+                else if (token.word == "(" || token.word == "[") 
+                {
                     result += token.word;
-                } else if (token.word == "/") {
+                } 
+                else if (token.word == "/") 
+                {
                     if (result != "") {
                         result = result.Substring(0, result.Length - 1);
                     }
                     result += token.word;
-                } else if (token.word != "-" && token.word != "\"" && token.word != "”" && token.word != "“") {
+                } 
+                else if (token.word != "-" && token.word != "\"" && token.word != "”" && token.word != "“") 
+                {
                     result += token.word + " ";
                 }
             }

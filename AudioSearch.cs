@@ -2,29 +2,31 @@ using System;
 
 public static class AudioSearch 
 {
-    public static void GetAudioStream(string word) 
-    {
-        string formatedString = FormatWord(word);
-        string filePath = $"output/collection.media/{word}.mp3";
-        string url = $"http://lexin.nada.kth.se/sound/{formatedString}.mp3";
+    public const string OUTPUTFOLDER = "output/collection.media";
 
-        var client = new HttpClient();
-        if (File.Exists(filePath)) {
-            return;
+    public static bool GetAudioStream(string word) 
+    {
+        if (File.Exists($"{OUTPUTFOLDER}/{word}.mp3")) {
+            return true;
         }      
 
+        string formatedString = FormatWord(word);
+        string url = $"http://lexin.nada.kth.se/sound/{formatedString}.mp3";
+        var client = new HttpClient();
         Task<Stream> streamTask;
 
         try {
-            streamTask = Task.Run(() => client.GetStreamAsync(url)); 
+            streamTask = client.GetStreamAsync(url);
             streamTask.Wait();
         } catch {
             System.Console.WriteLine("Failed to fetch audio");
-            return;
+            return false;
         }
 
-        var fs = new FileStream("output/collection.media/" + word + ".mp3", FileMode.OpenOrCreate); 
+        var fs = new FileStream($"{OUTPUTFOLDER}/{word}.mp3", FileMode.OpenOrCreate); 
         var copyTask = streamTask.Result.CopyToAsync(fs);
+
+        return true;
     }
 
     public static string FormatWord(string word) 

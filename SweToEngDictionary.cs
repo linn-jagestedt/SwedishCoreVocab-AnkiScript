@@ -69,13 +69,20 @@ namespace DeckGenerator
         public Dictionary<string, List<string>> WordByDerivation;
         public Dictionary<string, List<string>> AbreviationByWord;
         public HashSet<string> HasAudio;
-        public SweToEngDictionary(XmlDictionary dictionary)
+        public const string SOURCE_FILE = "src/People's_Dictionary.xml";
+        public SweToEngDictionary()
         {
             DictEntryByWord = new Dictionary<string, DictEntry>();
             WordAndClassByInflection = new Dictionary<string, List<(string, string)>>();
             WordByDerivation = new Dictionary<string, List<string>>();
             AbreviationByWord = new Dictionary<string, List<string>>();
             HasAudio = new HashSet<string>();
+
+            if (!File.Exists(SOURCE_FILE)) {
+                System.Console.WriteLine($"SweToEngDictionary Error, cannot find file: {SOURCE_FILE}");
+            }
+
+            XmlDictionary dictionary = XmlDictionary.Deserialize(SOURCE_FILE);
 
             foreach (XmlWord word in dictionary.Words) 
             {  
@@ -134,7 +141,7 @@ namespace DeckGenerator
             }
         }
 
-        public string GetDefinitions(string searchParam, string wordClass) 
+        public bool GetDefinitions(string searchParam, string wordClass, out string result) 
         {
             List<List<string>> translations = new List<List<string>>();
 
@@ -156,21 +163,12 @@ namespace DeckGenerator
                         translations.Add(new List<string> { GetDefinitionStrict(wordAndClass.Item1, wordAndClass.Item2) });
                     }
                 }
-
-            
-                // If no translations are found so far, do a loose search
-                /* if (translations.SelectMany(x => x.SelectMany(x => x)).Count() < 1) 
-                {
-                    foreach ((string, string) wordAndClass in sweToEngDict.WordAndClassByInflection[searchParam]) 
-                    {
-                        translations.AddRange(GetTranslation(wordAndClass.Item1, sweToEngDict));
-                        translations.Add(GetDefinition(wordAndClass.Item1, sweToEngDict));
-                    }
-                } */
             }
 
-            string result = GenerateDefinition(translations);
-            return result == "" ? "" : "<ul>" + result + "</ul>"; 
+            result = GenerateDefinition(translations);
+            result = result == "" ? "" : "<ul>" + result + "</ul>";
+
+            return result != ""; 
         }
 
         public List<List<string>> GetTranslation(string searchParam) 

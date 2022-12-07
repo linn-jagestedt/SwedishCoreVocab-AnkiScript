@@ -1,11 +1,10 @@
 namespace DeckGenerator 
 {
-    public class AnkiCard 
+    public struct AnkiCard 
     {
         public string Question = "";
         public string Word = "";
         public string Class = "";
-        public string ClassAbbreviated = "";
         public string Gender = "";
         public string Abreviations = "";
         public string Definition = "";
@@ -19,7 +18,6 @@ namespace DeckGenerator
             Question = "";
             Word = "";
             Class = "";
-            ClassAbbreviated = "";
             Gender = "";
             Abreviations = "";
             Definition = "";
