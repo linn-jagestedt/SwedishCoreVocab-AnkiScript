@@ -4,14 +4,14 @@ This program is written to generate an Anki deck with common Swedish words based
 
 ## Sources used for this project
 
-### SVALex: http://cental.uclouvain.be/svalex/ (Downloaded file)
+### [SVALex](http://cental.uclouvain.be/svalex/) (Downloaded file)
 Used for Frequency indexes, word class and noun gender.
 
-### Svensk ordbok (Svenska Akademien): https://svenska.se/so/ (Webscraped)
+### [Svensk ordbok](https://svenska.se/so/) (Webscraped)
 Used for Swedish definitions and audio files.
 
-### Folkets ordbok (KTH): https://folkets-lexikon.csc.kth.se/folkets/ (Downloaded file)
+### [Folkets ordbok](https://folkets-lexikon.csc.kth.se/folkets/) (Downloaded file)
 Used for english translations.
 
-### Korp (Språkbanken): https://spraakbanken.gu.se/korp/ (Web api)
+### [Kor](https://spraakbanken.gu.se/korp/) (Web api)
 Used for CEFR graded example sentences. 
