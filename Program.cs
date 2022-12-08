@@ -175,9 +175,10 @@ namespace DeckGenerator
                 abreviations = _sweToEngDict.AbreviationByWord[word.WrittenForm][0];
             }
 
-            string audioFile = "";
-
-            if (!SOSearch.DownloadAudio(word.WrittenForm, word.WordClass, out audioFile)) {
+            if (!SOSearch.DownloadAudio(word.WrittenForm, word.WordClass, out string audioFile)) 
+            {
+                audioFile = "";
+                
                 if (_sweToEngDict.HasAudio.Contains(word.WrittenForm)) {
                     if (!FOSearch.DownloadAudio(word.WrittenForm, out audioFile)) {
                         audioFile = "";
