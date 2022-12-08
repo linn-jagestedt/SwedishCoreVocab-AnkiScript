@@ -69,7 +69,7 @@ namespace DeckGenerator
         public Dictionary<string, List<string>> WordByDerivation;
         public Dictionary<string, List<string>> AbreviationByWord;
         public HashSet<string> HasAudio;
-        public const string SOURCE_FILE = "src/People's_Dictionary.xml";
+        public const string SOURCE_FILE = "src/Folkets_ordbok.xml";
         public const string OUTPUT_FOLDER = "output/collection.media";
         public static bool LocalOnly;
 

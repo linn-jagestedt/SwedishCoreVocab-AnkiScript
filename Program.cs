@@ -5,8 +5,8 @@ namespace DeckGenerator
 {
     public static class Program 
     {
-        private static SVALexKorp _svaLexKorp;
-        private static RivstartVocab _rivstartVocabList;
+        private static SVALexSearch _svaLexKorp;
+        private static RivstartSearch _rivstartVocabList;
         private static FOSearch _sweToEngDict;
         
         private static Dictionary<Corpus, ConcurrentBag<AnkiCard>> _decks;
@@ -42,8 +42,8 @@ namespace DeckGenerator
             KorpSearch.LocalOnly = true;
             SOSearch.LocalOnly = false;
 
-            _rivstartVocabList  = new RivstartVocab();
-            _svaLexKorp = new SVALexKorp();
+            _rivstartVocabList  = new RivstartSearch();
+            _svaLexKorp = new SVALexSearch();
             _sweToEngDict = new FOSearch();
 
             _decks = new Dictionary<Corpus, ConcurrentBag<AnkiCard>>();
@@ -84,8 +84,8 @@ namespace DeckGenerator
 
             if (_svaLexKorp.Entries[word].GetLowestRivstartLevel(out Corpus rivstartLevel)) 
             {
-                if (RivstartVocab.ChapterByWord.ContainsKey(_svaLexKorp.Entries[word].WrittenForm)) {
-                    card.Tags = RivstartVocab.ChapterByWord[_svaLexKorp.Entries[word].WrittenForm];
+                if (RivstartSearch.ChapterByWord.ContainsKey(_svaLexKorp.Entries[word].WrittenForm)) {
+                    card.Tags = RivstartSearch.ChapterByWord[_svaLexKorp.Entries[word].WrittenForm];
                 }
                 card.Frequency = _svaLexKorp.Entries[word].Frequency[rivstartLevel].ToString();
                 _decks[rivstartLevel].Add(card);
@@ -155,12 +155,12 @@ namespace DeckGenerator
         public static bool GenerateCard(SVALexEntry word, out AnkiCard card) 
         {
             if (!_sweToEngDict.GetDefinitions(word.WrittenForm, word.WordClass, out string enDefinition)) {
-                if (!RivstartVocab.TranslationsByWord.ContainsKey(word.WrittenForm)) {
+                if (!RivstartSearch.TranslationsByWord.ContainsKey(word.WrittenForm)) {
                     card = new AnkiCard();
                     return false;
                 } 
                 
-                enDefinition = RivstartVocab.TranslationsByWord[word.WrittenForm];
+                enDefinition = RivstartSearch.TranslationsByWord[word.WrittenForm];
             }
 
             string sentence = "";
