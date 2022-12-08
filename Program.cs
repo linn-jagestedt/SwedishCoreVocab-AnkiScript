@@ -1,14 +1,23 @@
 ﻿using System.Diagnostics;
+using System.Collections.Concurrent;
 
 namespace DeckGenerator
 {
     public static class Program 
     {
         private static SVALexKorp _svaLexKorp;
-        private static RivstartVocabList _rivstartVocabList;
-        private static SweToEngDictionary _sweToEngDict;
+        private static RivstartVocab _rivstartVocabList;
+        private static FOSearch _sweToEngDict;
+        
+        private static Dictionary<Corpus, ConcurrentBag<AnkiCard>> _decks;
+
+
         public static void Main() 
         {
+            if (!Directory.Exists("temp")) {
+                Directory.CreateDirectory("temp");
+            }
+
             if (!Directory.Exists("output")) {
                 Directory.CreateDirectory("output");
             }
@@ -29,19 +38,18 @@ namespace DeckGenerator
                 System.IO.File.Copy(file, "output/collection.media/" + file.Split('/').Last(), true);
             }
 
-            CorpusSearch.LocalOnly = true;
+            FOSearch.LocalOnly = true;
+            KorpSearch.LocalOnly = true;
+            SOSearch.LocalOnly = false;
 
-            Dictionary<Corpus, List<AnkiCard>> decks = new Dictionary<Corpus, List<AnkiCard>>();
-
-            _rivstartVocabList  = new RivstartVocabList();
-
+            _rivstartVocabList  = new RivstartVocab();
             _svaLexKorp = new SVALexKorp();
-            _sweToEngDict = new SweToEngDictionary();
+            _sweToEngDict = new FOSearch();
 
-            decks = new Dictionary<Corpus, List<AnkiCard>>();
+            _decks = new Dictionary<Corpus, ConcurrentBag<AnkiCard>>();
 
             foreach (Corpus corpus in Enum.GetValues(typeof(Corpus))) {
-                decks.Add(corpus,new List<AnkiCard>());
+                _decks.Add(corpus,new ConcurrentBag<AnkiCard>());
             }
 
             Stopwatch stopwatch = new Stopwatch();
@@ -49,86 +57,115 @@ namespace DeckGenerator
 
             int i = 0;
 
-            Parallel.ForEach(_svaLexKorp.Entries.Keys, new ParallelOptions { MaxDegreeOfParallelism = 6 }, (word) => 
+            Timer timer = new Timer((object state) => {
+                float time = stopwatch.ElapsedMilliseconds / 1000.0f;
+                Console.WriteLine($"{i} of {_svaLexKorp.Entries.Count} cards processed ({(i / time).ToString("N1")} cards per seccond)");
+            }, null, 0, 2000);
+
+            Parallel.ForEach(_svaLexKorp.Entries.Keys, new ParallelOptions { MaxDegreeOfParallelism = 4 }, (word) => 
             {   
-                if (GenerateCard(_svaLexKorp.Entries[word], out AnkiCard card))
-                {
-                    // Rivstart Deck
-
-                    if (_svaLexKorp.Entries[word].GetLowestRivstartLevel(out Corpus rivstartLevel)) 
-                    {
-                        if (RivstartVocabList.ChapterByWord.ContainsKey(_svaLexKorp.Entries[word].WrittenForm)) {
-                            card.Tags = RivstartVocabList.ChapterByWord[_svaLexKorp.Entries[word].WrittenForm];
-                        }
-                        card.Frequency = _svaLexKorp.Entries[word].Frequency[rivstartLevel].ToString();
-                        decks[rivstartLevel].Add(card);
-                    }
-
-                    // CEFR Graded deck
-
-                    if (_svaLexKorp.Entries[word].GetLowestCEFRLevel(out Corpus cefrLevel)) 
-                    {
-                        card.Tags = "";
-
-                        Corpus[] exlude = new Corpus[] { Corpus.A1, Corpus.A2, Corpus.B1, Corpus.B2, Corpus.C1, Corpus.Total, Corpus.NAN };
-
-                        foreach (Corpus corpus in Enum.GetValues(typeof(Corpus))) {
-                            if (!exlude.Contains(corpus)) {
-                                if (_svaLexKorp.Entries[word].Frequency[corpus] > 0.0) {
-                                    card.Tags += corpus.ToString() + " ";
-                                }
-                            }
-                        }
-
-                        card.Frequency = _svaLexKorp.Entries[word].Frequency[cefrLevel].ToString();
-                        decks[cefrLevel].Add(card);
-                    }
-
-                    // Core 9k deck
-
-                    card.Tags = "";
-                    
-                    Corpus[] cefrLevels = new Corpus[] { Corpus.A1, Corpus.A2, Corpus.B1, Corpus.B2, Corpus.C1 };
-
-                    foreach (Corpus corpus in cefrLevels) {
-                        if (_svaLexKorp.Entries[word].Frequency[corpus] > 0.0) {
-                            card.Tags += corpus.ToString() + " ";
-                        }
-                    }
-
-                    card.Frequency = _svaLexKorp.Entries[word].Frequency[Corpus.Total].ToString();
-                    decks[Corpus.Total].Add(card);
-                }
-
-                if (i % 200 == 0) {
-                    float time = stopwatch.ElapsedMilliseconds == 0 ? 0.0f : stopwatch.ElapsedMilliseconds / 1000.0f;
-                    Console.WriteLine($"{i} of {_svaLexKorp.Entries.Count} cards created ({(i / time).ToString("N1")} cards per seccond)");
+                if (GenerateCard(_svaLexKorp.Entries[word], out AnkiCard card)) {
+                    AddToDecks(word, card);
                 }
 
                 i++;
             });
 
             foreach (Corpus corpus in Enum.GetValues(typeof(Corpus))) {
-                if (decks[corpus].Count > 0) {
-                    System.IO.File.WriteAllText($"output/{corpus.ToString()}_Deck.tsv", string.Join("\n", decks[corpus]));    
+                if (_decks[corpus].Count > 0) {
+                    System.IO.File.WriteAllText($"output/{corpus.ToString()}_Deck.tsv", string.Join("\n", _decks[corpus].OrderByDescending(x => float.Parse(x.Frequency))));    
                 } 
             }
         }
 
+        public static void AddToDecks(string word, AnkiCard card) 
+        {
+            // Rivstart Deck
+
+            if (_svaLexKorp.Entries[word].GetLowestRivstartLevel(out Corpus rivstartLevel)) 
+            {
+                if (RivstartVocab.ChapterByWord.ContainsKey(_svaLexKorp.Entries[word].WrittenForm)) {
+                    card.Tags = RivstartVocab.ChapterByWord[_svaLexKorp.Entries[word].WrittenForm];
+                }
+                card.Frequency = _svaLexKorp.Entries[word].Frequency[rivstartLevel].ToString();
+                _decks[rivstartLevel].Add(card);
+            }
+
+            // Nya Mål Deck
+
+            if (_svaLexKorp.Entries[word].GetLowestNyaMålLevelLevel(out Corpus nyamålLevel)) 
+            {
+                card.Frequency = _svaLexKorp.Entries[word].Frequency[nyamålLevel].ToString();
+                _decks[nyamålLevel].Add(card);
+            }
+
+            // På Svenska Deck
+
+            if (_svaLexKorp.Entries[word].GetLowestPåSvenskaLevel(out Corpus påsvenskaLevel)) 
+            {
+                card.Frequency = _svaLexKorp.Entries[word].Frequency[påsvenskaLevel].ToString();
+                _decks[påsvenskaLevel].Add(card);
+            }
+
+            // Svenska Utifrån Deck
+
+            if (_svaLexKorp.Entries[word].GetLowestSvenskaUtifrånLevel(out Corpus svenskautifrånLevel)) 
+            {
+                card.Frequency = _svaLexKorp.Entries[word].Frequency[svenskautifrånLevel].ToString();
+                _decks[svenskautifrånLevel].Add(card);
+            }
+
+            // CEFR Graded deck
+
+            if (_svaLexKorp.Entries[word].GetLowestCEFRLevel(out Corpus cefrLevel)) 
+            {
+                card.Tags = "";
+
+                Corpus[] exlude = new Corpus[] { Corpus.A1, Corpus.A2, Corpus.B1, Corpus.B2, Corpus.C1, Corpus.Total, Corpus.NAN };
+
+                foreach (Corpus corpus in Enum.GetValues(typeof(Corpus))) {
+                    if (!exlude.Contains(corpus)) {
+                        if (_svaLexKorp.Entries[word].Frequency[corpus] > 0.0) {
+                            card.Tags += corpus.ToString() + " ";
+                        }
+                    }
+                }
+
+                card.Frequency = _svaLexKorp.Entries[word].Frequency[cefrLevel].ToString();
+                _decks[cefrLevel].Add(card);
+            }
+
+            // Core 9k deck
+
+            card.Tags = "";
+            
+            Corpus[] cefrLevels = new Corpus[] { Corpus.A1, Corpus.A2, Corpus.B1, Corpus.B2, Corpus.C1 };
+
+            foreach (Corpus corpus in cefrLevels) {
+                if (_svaLexKorp.Entries[word].Frequency[corpus] > 0.0) {
+                    card.Tags += corpus.ToString() + " ";
+                }
+            }
+
+            card.Frequency = _svaLexKorp.Entries[word].Frequency[Corpus.Total].ToString();
+            _decks[Corpus.Total].Add(card);
+
+        }
+
         public static bool GenerateCard(SVALexEntry word, out AnkiCard card) 
         {
-            if (!_sweToEngDict.GetDefinitions(word.WrittenForm, word.WordClass, out string definition)) {
-                if (!RivstartVocabList.TranslationsByWord.ContainsKey(word.WrittenForm)) {
+            if (!_sweToEngDict.GetDefinitions(word.WrittenForm, word.WordClass, out string enDefinition)) {
+                if (!RivstartVocab.TranslationsByWord.ContainsKey(word.WrittenForm)) {
                     card = new AnkiCard();
                     return false;
                 } 
                 
-                definition = RivstartVocabList.TranslationsByWord[word.WrittenForm];
+                enDefinition = RivstartVocab.TranslationsByWord[word.WrittenForm];
             }
 
             string sentence = "";
 
-            if (!CorpusSearch.GetSentence(word.WrittenForm, word.WordClass, out sentence)) {
+            if (!KorpSearch.GetSentence(word.WrittenForm, word.WordClass, out sentence)) {
                 sentence = _sweToEngDict.GetExampleStrict(word.WrittenForm, word.WordClass);
             }
          
@@ -140,11 +177,17 @@ namespace DeckGenerator
 
             string audioFile = "";
 
-            if (_sweToEngDict.HasAudio.Contains(word.WrittenForm)) {
-                if (AudioSearch.GetAudioStream(word.WrittenForm)) {
-                    audioFile = "[sound:" + word.WrittenForm + ".mp3]";
+            if (!SOSearch.DownloadAudio(word.WrittenForm, word.WordClass, out audioFile)) {
+                if (_sweToEngDict.HasAudio.Contains(word.WrittenForm)) {
+                    if (!FOSearch.DownloadAudio(word.WrittenForm, out audioFile)) {
+                        audioFile = "";
+                    }
                 }
-            } 
+            }      
+
+            if (!SOSearch.GetDefinitions(word.WrittenForm, word.WordClass, out string svDefinition)) {
+                svDefinition = "";
+            }
 
             card = new AnkiCard {
                 Question = word.Word,
@@ -152,9 +195,10 @@ namespace DeckGenerator
                 Class = word.FormatedWordClass,
                 Gender = word.Gender,
                 Abreviations = abreviations,
-                Definition = definition,
+                EnglishDefinition = enDefinition,
+                SwedishDefinition = svDefinition,
                 Sentence = sentence,
-                Audio = audioFile,
+                Audio = audioFile == "" ? "" : $"[sound:{audioFile}]",
                 Tags = ""
             };
 

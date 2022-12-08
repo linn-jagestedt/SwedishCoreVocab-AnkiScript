@@ -9,6 +9,10 @@ output
 output/
 output/*
 
+temp
+temp/
+temp/*
+
 # User-specific files
 *.rsuser
 *.suo

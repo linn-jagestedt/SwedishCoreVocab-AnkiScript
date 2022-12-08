@@ -7,13 +7,13 @@ using System.Linq;
 
 namespace DeckGenerator
 {
-    public class DictEntry
+    public class FOEntry
     {   
         public Dictionary<string, string> DefinitionByClass;
         public Dictionary<string, List<List<string>>> TranslationsByClass;
         public Dictionary<string, List<string>> ExamplesByClass;
 
-        public DictEntry() 
+        public FOEntry() 
         {
             DefinitionByClass = new Dictionary<string, string>();
             TranslationsByClass = new Dictionary<string, List<List<string>>>();
@@ -62,17 +62,20 @@ namespace DeckGenerator
         }
     }
 
-    public class SweToEngDictionary 
+    public class FOSearch 
     {
-        public Dictionary<string, DictEntry> DictEntryByWord;
+        public Dictionary<string, FOEntry> DictEntryByWord;
         public Dictionary<string, List<(string, string)>> WordAndClassByInflection;
         public Dictionary<string, List<string>> WordByDerivation;
         public Dictionary<string, List<string>> AbreviationByWord;
         public HashSet<string> HasAudio;
         public const string SOURCE_FILE = "src/People's_Dictionary.xml";
-        public SweToEngDictionary()
+        public const string OUTPUT_FOLDER = "output/collection.media";
+        public static bool LocalOnly;
+
+        public FOSearch()
         {
-            DictEntryByWord = new Dictionary<string, DictEntry>();
+            DictEntryByWord = new Dictionary<string, FOEntry>();
             WordAndClassByInflection = new Dictionary<string, List<(string, string)>>();
             WordByDerivation = new Dictionary<string, List<string>>();
             AbreviationByWord = new Dictionary<string, List<string>>();
@@ -90,7 +93,7 @@ namespace DeckGenerator
 
                 if (!new string[] { "rg", "abbrev", "pm" }.Contains(word.Class)) {
                     if (!DictEntryByWord.ContainsKey(word.Value)) {
-                        DictEntryByWord.Add(word.Value, new DictEntry());
+                        DictEntryByWord.Add(word.Value, new FOEntry());
                     }
                     
                     DictEntryByWord[word.Value].AddData(word);
@@ -257,6 +260,63 @@ namespace DeckGenerator
                 if (!result.Contains(temp)) {
                     result += temp;
                 }
+            }
+
+            return result;
+        }
+
+        public static bool DownloadAudio(string writtenForm, out string filename) 
+        {
+            filename = $"{writtenForm}_FO.mp3";
+
+            if (File.Exists($"{OUTPUT_FOLDER}/{filename}")) {
+                return true;
+            }      
+
+            if (LocalOnly) {
+                return false;
+            }
+
+            string formatedString = FormatWord(writtenForm);
+            string url = $"http://lexin.nada.kth.se/sound/{formatedString}.mp3";
+
+            var client = new HttpClient();
+            Task<Stream> streamTask;
+
+            try {
+                streamTask = client.GetStreamAsync(url);
+                streamTask.Wait();
+            } catch {
+                System.Console.WriteLine("Failed to fetch audio");
+                return false;
+            }
+
+            var fs = new FileStream($"{OUTPUT_FOLDER}/{filename}", FileMode.OpenOrCreate); 
+            var copyTask = streamTask.Result.CopyToAsync(fs);
+
+            return true;
+        }
+
+        public static string FormatWord(string word) 
+        {
+            for (int j = 0; j < word.Length; j++) {
+                if (word[j] > 127) {
+                    char c = word[j];
+                    word = word.Remove(j, 1);
+                    word = word.Insert(j, "0" + ToOctal((int)c).ToString());
+                }
+            }
+
+            return word;
+        }
+
+        public static int ToOctal(int n)
+        {
+            int result = 0;
+            List<int> octalNum = new List<int>();
+            for (int i = 0; n != 0; i++) {
+                result += (int)MathF.Pow(10, i) * (n % 8);
+                n /= 8;
             }
 
             return result;

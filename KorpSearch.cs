@@ -36,11 +36,11 @@ namespace DeckGenerator
         public float time { get; set; }
     }   
 
-    public static class CorpusSearch 
+    public static class KorpSearch 
     {
         public static bool LocalOnly = false;
         private static Dictionary<string, List<string>> _cache;
-        public const string CACHEFILE = "output/Sentences.tsv";
+        public const string CACHEFILE = "temp/Corpus_sentences.tsv";
 
         public static bool GetSentence(string writtenForm, string wordClass, out string result) 
         {
@@ -48,11 +48,10 @@ namespace DeckGenerator
                 _cache = ReadCache();
             }
 
-            string[] sentences;
             string word = $"{writtenForm} ({wordClass})";
 
             if (_cache.ContainsKey(word)) {
-                result = _cache[word][0];
+                result = _cache[word][0].ToLower();
                 return true;
             }
 
@@ -72,13 +71,13 @@ namespace DeckGenerator
                 url = $"https://ws.spraakbanken.gu.se/ws/korp/v8/query?corpus={corpus}&default_context=1%20sentence&cqp=%5Bpos%20%3D%20%22{wordClass.ToUpper()}%22%20%26%20lemma%20contains%20%22{writtenForm}%22%5D&show_struct=lesson_level,lesson_cefr_level";
             }
 
-            if (SearchCorpus(url, out sentences)) 
+            if (SearchCorpus(url, out string[] sentences)) 
             {
                 using (StreamWriter writer = new StreamWriter(OpenFileStream(CACHEFILE))) {
                     writer.WriteLine($"{word}\t{string.Join("\t", sentences)}");
                 }
   
-                result = sentences[0];
+                result = sentences[0].ToLower();
                 return true;
             }
                 
@@ -86,7 +85,7 @@ namespace DeckGenerator
             return false;
         }
 
-        public static bool SearchCorpus(string url, out string[] result) 
+        private static bool SearchCorpus(string url, out string[] result) 
         {
             result = null;
 
@@ -110,7 +109,7 @@ namespace DeckGenerator
             return true; 
         }
 
-        public static FileStream OpenFileStream(string filename)
+        private static FileStream OpenFileStream(string filename)
         {
             bool Locked = true;
             FileStream fileStream = null;
@@ -133,7 +132,7 @@ namespace DeckGenerator
             return fileStream;
         }
 
-        public static Dictionary<string, List<string>> ReadCache() 
+        private static Dictionary<string, List<string>> ReadCache() 
         {   
             Dictionary<string, List<string>> sentences = new Dictionary<string, List<string>>(); 
 
@@ -154,7 +153,7 @@ namespace DeckGenerator
             return sentences;
         }
 
-        public static int CountWords(Token[] tokens) {
+        private static int CountWords(Token[] tokens) {
             int result = 0;
             foreach (Token token in tokens) {
                 if (!new string[] { ",",  ".", "\"", "(", ")", "[", "]", "!", "?", ":", "-", "”", "“" }.Contains(token.word)) {
@@ -164,7 +163,7 @@ namespace DeckGenerator
             return result;
         }
 
-        public static string TokensToString(Token[] tokens) 
+        private static string TokensToString(Token[] tokens) 
         {
             string result = "";
 

@@ -6,13 +6,13 @@ using System.Text.Json;
 
 namespace DeckGenerator
 {
-    public class RivstartVocabList 
+    public class RivstartVocab 
     {
         public static Dictionary<string, string> TranslationsByWord;
         public static Dictionary<string, string> ChapterByWord;
         public const string SOURCE_FILE = "src/Rivstart_VocabList.tsv";
 
-        public RivstartVocabList() 
+        public RivstartVocab() 
         {
             ChapterByWord = new Dictionary<string, string>();
             TranslationsByWord = new Dictionary<string, string>();

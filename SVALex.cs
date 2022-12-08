@@ -37,6 +37,43 @@ namespace DeckGenerator
             return result != Corpus.NAN;
         }
 
+        public bool GetLowestSvenskaUtifrånLevel(out Corpus result) 
+        {   
+            result = Corpus.NAN;
+
+            if (Frequency[Corpus.Svenska_Utifrån_A1] > 0) result = Corpus.Svenska_Utifrån_A1; 
+            else if (Frequency[Corpus.Svenska_Utifrån_A2] > 0) result = Corpus.Svenska_Utifrån_A2; 
+            else if (Frequency[Corpus.Svenska_Utifrån_B1] > 0) result = Corpus.Svenska_Utifrån_B1; 
+            
+            return result != Corpus.NAN;
+        }
+
+
+        public bool GetLowestNyaMålLevelLevel(out Corpus result) 
+        {   
+            result = Corpus.NAN;
+
+            if (Frequency[Corpus.Nya_Mål_A1] > 0) result = Corpus.Nya_Mål_A1; 
+            else if (Frequency[Corpus.Nya_Mål_A2] > 0) result = Corpus.Nya_Mål_A2; 
+            else if (Frequency[Corpus.Nya_Mål_B1] > 0) result = Corpus.Nya_Mål_B1; 
+            else if (Frequency[Corpus.Nya_Mål_B2] > 0) result = Corpus.Nya_Mål_B2; 
+            
+            return result != Corpus.NAN;
+        }
+
+        public bool GetLowestPåSvenskaLevel(out Corpus result) 
+        {   
+            result = Corpus.NAN;
+
+            if (Frequency[Corpus.På_Svenska_A1] > 0) result = Corpus.På_Svenska_A1; 
+            else if (Frequency[Corpus.På_Svenska_A2] > 0) result = Corpus.På_Svenska_A2; 
+            else if (Frequency[Corpus.På_Svenska_B1] > 0) result = Corpus.På_Svenska_B1; 
+            else if (Frequency[Corpus.På_Svenska_B2] > 0) result = Corpus.På_Svenska_B2; 
+            
+            return result != Corpus.NAN;
+        }
+
+
         public bool GetLowestCEFRLevel(out Corpus result) 
         {    
             result = Corpus.NAN;
@@ -133,16 +170,15 @@ namespace DeckGenerator
         {
             if (wordClass == "") return "";
             else if (wordClass == "pp") return "preposition";
-            else if (wordClass == "nn") return "noun";
             else if (wordClass == "vb") return "verb";
             else if (wordClass == "nn") return "noun";
             else if (wordClass == "jj") return "adjective";
-            else if (wordClass == "ab") return "adverb";
+            else if (wordClass == "ab" || wordClass == "ha") return "adverb";
             else if (wordClass == "ie") return "infinitive marker";
             else if (wordClass == "sn") return "subjunktion";
             else if (wordClass == "rg") return "numeral";
             else if (wordClass == "dt") return "determiner";
-            else if (wordClass == "pn") return "prounoun";
+            else if (wordClass == "pn" || wordClass == "hp") return "prounoun";
             else if (wordClass == "in") return "interjection";
             else if (wordClass == "kn") return "conjunction";
             else if (wordClass == "pm") return "name";

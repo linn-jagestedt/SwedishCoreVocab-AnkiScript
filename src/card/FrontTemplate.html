@@ -2,10 +2,27 @@
 
 <div class="word">
 	<span class="gramar">{{Gramar}}</span>
-	<a href="https://folkets-lexikon.csc.kth.se/folkets/#lookup&{{Word}}">{{Word}}</a>
+	<a href="https://svenska.se/tre/?sok={{Written Form}}">{{Written Form}}</a><span id="abreviation" class="abreviation"></span>
 </div>
 
-<div id="example" class="example">{{Example}}</div>
+<div id="svDefinition" class="svDefinition">{{SwedishDefinition}}</div>
 
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js "></script>
+<div style="display: none;">{{Audio}}</div>
+
 <script src="_utils.js"></script>
+<script src="_jquery-2.2.2.min.js"></script>
+
+<script>
+	var def = $('#svDefinition').text();
+	if (def.indexOf('[') != -1) {
+		$('#svDefinition').html(def.replace('[', '<p class="sub">[') + '</p>');
+	}
+
+	if ('{{Abreviation}}' != '') {
+		$('#abreviation').append(' ({{Abreviation}})');
+	}	
+
+	if ('{{SwedishDefinition}}' == '') {
+		$('#svDefinition').css('display', 'none');
+	}	
+</script>

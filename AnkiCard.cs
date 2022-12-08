@@ -7,7 +7,8 @@ namespace DeckGenerator
         public string Class = "";
         public string Gender = "";
         public string Abreviations = "";
-        public string Definition = "";
+        public string EnglishDefinition = "";
+        public string SwedishDefinition = "";
         public string Sentence = "";
         public string Audio = "";
         public string Frequency = "";
@@ -20,7 +21,8 @@ namespace DeckGenerator
             Class = "";
             Gender = "";
             Abreviations = "";
-            Definition = "";
+            EnglishDefinition = "";
+            SwedishDefinition = "";
             Sentence = "";
             Audio = "";
             Frequency = "";
@@ -35,7 +37,8 @@ namespace DeckGenerator
             Class, 
             Gender,
             Abreviations, 
-            Definition, 
+            EnglishDefinition, 
+            SwedishDefinition,
             Sentence, 
             Audio, 
             Frequency, 

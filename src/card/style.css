@@ -1,10 +1,12 @@
 .card {
-	font-family: sans-serif;
-	font-size: 20px;
-	text-align: center;
-	color: black;
-	background-color: white;
+    font-family: serif;
+    font-size: 20px;
+    text-align: center;
+    color: black;
+    background-color: white;
 	padding: 20px 6vw;
+	max-width: 800px;
+	margin: auto;
 }
 
 a {
@@ -17,16 +19,16 @@ a:hover {
 
 .class {
 	color: #999;
-	font-size: 25px;
-	margin-bottom: 8px;
+	font-size: 1.2em;
+	padding: 20px 0 10px 0;
 }
 
 .word {
-	font-size: 40px;
-	margin-bottom: 16px;
+	font-size: 2em;
+	padding: 0 0 25px 0;
 }
 
-.word a {
+.word::first-letter {
 	text-transform: capitalize;
 }
 
@@ -34,33 +36,49 @@ a:hover {
 	color: #999;
 }
 
+.abreviation {
+	text-transform: none;
+	color: #999;
+}
+
+.svDefinition {
+	color: #999;
+	font-size: 0.9em;
+	padding: 0 0 30px 0;
+}
+
+.svDefinition::first-letter {
+		text-transform: capitalize;
+}
+
+.sub {
+	font-size: 0.8em;
+	margin: 0.2em;
+	line-height: 1.5em;
+}
+
 .example {
-	margin-bottom: 20px;
-	font-size: 17px;
+	padding: 0 0 30px 0;
+	font-size: 0.9em;
 }
 
 .example::first-letter {
 	text-transform: capitalize;
 }
 
-.example button {
-	margin: auto 8px;
-	font-size: 12px;
-	padding: 2px 8px;
-}
-
 hr {
-	margin-bottom: 8px;
+	margin: 0 0 30px 0;
+	padding: 0;
 }
 
-.definition {
-	padding: 8px 0 12px 0;
+.enDefinition {
+	padding: 0 0 20px 0;
 	margin: auto;
-	font-size: 20px;
+	font-size: 0.9em;
 }
 
-.definition li::first-letter {
-	text-transform: capitalize;
+.enDefinition li::first-letter {
+		text-transform: capitalize;
 }
 
 ul {
