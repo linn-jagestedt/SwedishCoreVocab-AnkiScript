@@ -2,10 +2,16 @@
 
 This program is written to generate an Anki deck with common Swedish words based on CEFR Grading.
 
-The words, their gradings and their frquency index is gathered from the SVALex project, english translations for the words from The People's Dictionary and graded example sentences from Korp. 
+## Sources used for this project
 
-The grading for the words are first gathered from the frequency data from the rivstart graded course books, if the word is not found it's checked against the total grade frequency data.
+### SVALex: http://cental.uclouvain.be/svalex/ (Downloaded file)
+Used for Frequency indexes, word class and noun gender.
 
-- SVAlex: http://cental.uclouvain.be/svalex/
-- The People's Dictionary: https://folkets-lexikon.csc.kth.se/folkets/
-- Korp: https://spraakbanken.gu.se/korp/
+### Svensk ordbok (Svenska Akademien): https://svenska.se/so/ (Webscraped)
+Used for Swedish definitions and audio files.
+
+### The People's Dictionary (KTH): https://folkets-lexikon.csc.kth.se/folkets/ (Downloaded file)
+Used for english translations.
+
+### Korp (Språkbanken): https://spraakbanken.gu.se/korp/
+Used for CEFR graded example sentences. 
