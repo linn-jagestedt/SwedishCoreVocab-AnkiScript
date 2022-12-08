@@ -13,5 +13,5 @@ Used for Swedish definitions and audio files.
 ### [Folkets ordbok](https://folkets-lexikon.csc.kth.se/folkets/) (Downloaded file)
 Used for english translations.
 
-### [KorP](https://spraakbanken.gu.se/korp/) (Web api)
+### [Korp](https://spraakbanken.gu.se/korp/) (Web api)
 Used for CEFR graded example sentences. 
