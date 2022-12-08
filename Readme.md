@@ -10,7 +10,7 @@ Used for Frequency indexes, word class and noun gender.
 ### Svensk ordbok (Svenska Akademien): https://svenska.se/so/ (Webscraped)
 Used for Swedish definitions and audio files.
 
-### The People's Dictionary (KTH): https://folkets-lexikon.csc.kth.se/folkets/ (Downloaded file)
+### Folkets ordbok (KTH): https://folkets-lexikon.csc.kth.se/folkets/ (Downloaded file)
 Used for english translations.
 
 ### Korp (Språkbanken): https://spraakbanken.gu.se/korp/ (Web api)
