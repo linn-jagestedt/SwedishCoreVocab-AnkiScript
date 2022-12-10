@@ -193,11 +193,11 @@ namespace DeckGenerator
             }
 
             card = new AnkiCard {
-                Question = word.Word,
-                Word = word.WrittenForm,
+                Word = word.Word,
+                WrittenForm = word.WrittenForm,
                 Class = word.FormatedWordClass,
                 Gender = word.Gender,
-                Abreviations = abreviations,
+                Abreviation = abreviations,
                 EnglishDefinition = enDefinition,
                 SwedishDefinition = svDefinition,
                 Sentence = sentence,

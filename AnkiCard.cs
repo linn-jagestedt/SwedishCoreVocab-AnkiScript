@@ -2,11 +2,11 @@ namespace DeckGenerator
 {
     public struct AnkiCard 
     {
-        public string Question = "";
         public string Word = "";
+        public string WrittenForm = "";
         public string Class = "";
         public string Gender = "";
-        public string Abreviations = "";
+        public string Abreviation = "";
         public string EnglishDefinition = "";
         public string SwedishDefinition = "";
         public string Sentence = "";
@@ -16,11 +16,11 @@ namespace DeckGenerator
 
         public AnkiCard() 
         {
-            Question = "";
             Word = "";
+            WrittenForm = "";
             Class = "";
             Gender = "";
-            Abreviations = "";
+            Abreviation = "";
             EnglishDefinition = "";
             SwedishDefinition = "";
             Sentence = "";
@@ -32,11 +32,11 @@ namespace DeckGenerator
         public override string ToString() => string.Join("\t", ToArray());
 
         public string[] ToArray() => new string[] { 
-            Question, 
             Word, 
+            WrittenForm, 
             Class, 
             Gender,
-            Abreviations, 
+            Abreviation, 
             EnglishDefinition, 
             SwedishDefinition,
             Sentence, 

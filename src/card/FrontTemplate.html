@@ -1,11 +1,11 @@
 <div id="class" class="class">({{Class}})</div>
 
 <div class="word">
-	<span class="gramar">{{Gramar}}</span>
+	<span class="gramar">{{Gender}}</span>
 	<a href="https://svenska.se/tre/?sok={{Written Form}}">{{Written Form}}</a><span id="abreviation" class="abreviation"></span>
 </div>
 
-<div id="svDefinition" class="svDefinition">{{SwedishDefinition}}</div>
+<div id="svDefinition" class="svDefinition">{{Swedish Definition}}</div>
 
 <div style="display: none;">{{Audio}}</div>
 
@@ -22,7 +22,7 @@
 		$('#abreviation').append(' ({{Abreviation}})');
 	}	
 
-	if ('{{SwedishDefinition}}' == '') {
+	if ('{{Swedish Definition}}' == '') {
 		$('#svDefinition').css('display', 'none');
 	}	
 </script>
