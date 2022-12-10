@@ -38,9 +38,9 @@ namespace DeckGenerator
                 System.IO.File.Copy(file, "output/collection.media/" + file.Split('/').Last(), true);
             }
 
-            FOSearch.LocalOnly = true;
-            KorpSearch.LocalOnly = true;
-            SOSearch.LocalOnly = false;
+            //FOSearch.LocalOnly = true;
+            //KorpSearch.LocalOnly = true;
+            //SOSearch.LocalOnly = true;
 
             _rivstartVocabList  = new RivstartSearch();
             _svaLexKorp = new SVALexSearch();
@@ -95,6 +95,7 @@ namespace DeckGenerator
 
             if (_svaLexKorp.Entries[word].GetLowestNyaMålLevelLevel(out Corpus nyamålLevel)) 
             {
+                card.Tags = "";
                 card.Frequency = _svaLexKorp.Entries[word].Frequency[nyamålLevel].ToString();
                 _decks[nyamålLevel].Add(card);
             }
@@ -103,6 +104,7 @@ namespace DeckGenerator
 
             if (_svaLexKorp.Entries[word].GetLowestPåSvenskaLevel(out Corpus påsvenskaLevel)) 
             {
+                card.Tags = "";
                 card.Frequency = _svaLexKorp.Entries[word].Frequency[påsvenskaLevel].ToString();
                 _decks[påsvenskaLevel].Add(card);
             }
@@ -111,6 +113,7 @@ namespace DeckGenerator
 
             if (_svaLexKorp.Entries[word].GetLowestSvenskaUtifrånLevel(out Corpus svenskautifrånLevel)) 
             {
+                card.Tags = "";
                 card.Frequency = _svaLexKorp.Entries[word].Frequency[svenskautifrånLevel].ToString();
                 _decks[svenskautifrånLevel].Add(card);
             }
@@ -120,7 +123,6 @@ namespace DeckGenerator
             if (_svaLexKorp.Entries[word].GetLowestCEFRLevel(out Corpus cefrLevel)) 
             {
                 card.Tags = "";
-
                 Corpus[] exlude = new Corpus[] { Corpus.A1, Corpus.A2, Corpus.B1, Corpus.B2, Corpus.C1, Corpus.Total, Corpus.NAN };
 
                 foreach (Corpus corpus in Enum.GetValues(typeof(Corpus))) {
